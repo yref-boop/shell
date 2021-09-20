@@ -27,9 +27,11 @@ struct CMD C[]={
         {NULL, NULL}
 };
 
-void cmd_autores(char *tr[]){           //modificado *tr a *tr[]
-    printf("los autores son... \n");
-};
+
+void cmd_autores(char *tr[]){
+    printf("los autores son ...  \n");
+}
+
 
 void cmd_carpeta(char *tr[]){
     char dir[MAXLINE];
@@ -37,9 +39,10 @@ void cmd_carpeta(char *tr[]){
     if(tr[1] == NULL)
         printf("%s\n", getcwd(dir, MAXLINE));
     else
-        if(chdir(tr) == -1)
+        if(chdir(*tr) == -1)
             perror("Cannot change directory: Permission denied\n");
 }
+
 
 void cmd_pid(char *tr[]){
     if(tr[0] == NULL)
@@ -48,46 +51,67 @@ void cmd_pid(char *tr[]){
         printf("Shells process pid: %d\n", getpid());
 }
 
-void cmd_fin(){
-    exit(0);
-}
 
-int trocearCadena(char *cadena, char *trozos) {
-    int i = 1;
-            if((trozos[0] = strtok(cadena, "\n\t")) == NULL)
-                return 0;
-            while((trozos[i] = strtok(NULL, "\n\t")) != NULL)
-                i++;
-            return i;
+void cmd_fin(char *tr[]) {
+    exit;
 }
 
 
-void procesarEntrada(char *tr[]){
-    int i;
-
-    if(tr[0] == NULL)
+void processInput(char **tokens){
+    if(0!=(strcmp(tokens[0], NULL)))
         return;
-    for(i=0; C[i].name != NULL; i++){
-        if(!strcmp(tr[0], C[i].name))
-            (*C[i], func)(tr+i);
+
+    for(int i = 0 ; C[i].name != NULL ; i++){
+        if(!strcmp(tokens[0], C[i].name ))
+            (C[i].func)(tokens+i);
         return;
     }
 
-    printf("Command not found \n", tr[0]);
+    printf("Command %s not found\n", tokens[0]);
+}
+
+
+
+
+//this function is used to split the string (named previously as trocearCadena())
+//and to count the number of words written
+void splitString(char str[]){
+    char strc[MAXLINE];
+    strcpy(strc,str);
+    int num_words = 0;
+    char delim[] = " \t\a\r\n";
+
+    char *ptr = strtok(strc, delim);
+
+    char **tokens = malloc(MAXLINE);
+    int i=0;
+
+    while(ptr != NULL){
+        num_words++;
+        int size_ptr = sizeof(ptr);
+
+        tokens[i]=ptr;
+        i++;
+
+        printf("'%s'\n", ptr);
+        ptr = strtok(NULL, delim);
+    }
+    printf("%d\n", num_words);
+    printf("'%s'\n", tokens[0]);
 }
 
 
 
 int main(){
-    char linea[MAXLINE];
-    char *tr[MAXLINE/2];
+    char str[MAXLINE];
 
     while(1){
         printf("$ ");
-        fgets(linea, MAXLINE, stdin);
-        trocearCadena(linea, tr);
+        fgets(str, MAXLINE, stdin);
+        str[strcspn(str, "\n")] = 0;
 
-        procesarEntrada(char *tr[]);
+        splitString(str);
+       // processInput(str);
     }
 
     return 0;
