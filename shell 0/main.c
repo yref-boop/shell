@@ -28,31 +28,31 @@ struct CMD C[]={
 };
 
 
-void cmd_autores(char *tr[]){
+void cmd_autores(char *tokens[]){
     printf("los autores son ...  \n");
 }
 
 
-void cmd_carpeta(char *tr[]){
+void cmd_carpeta(char *tokens[]){
     char dir[MAXLINE];
 
-    if(tr[1] == NULL)
+    if(tokens[1] == NULL)
         printf("%s\n", getcwd(dir, MAXLINE));
     else
-        if(chdir(*tr) == -1)
+        if(chdir(*tokens) == -1)
             perror("Cannot change directory: Permission denied\n");
 }
 
 
-void cmd_pid(char *tr[]){
-    if(tr[0] == NULL)
+void cmd_pid(char *tokens[]){
+    if(tokens[0] == NULL)
         printf("Shell parent process pid: %d\n", getpid());
     else
         printf("Shells process pid: %d\n", getpid());
 }
 
 
-void cmd_fin(char *tr[]) {
+void cmd_fin(char *tokens[]) {
     exit(1);
 }
 
@@ -63,8 +63,7 @@ void processInput(char **tokens){
 
     for(int i = 0 ; C[i].name != NULL ; i++){
         if(!strcmp(tokens[0], C[i].name ))
-            (C[i].func)(tokens+i);
-        return;
+            (C[i].func)(&tokens[i]);
     }
 
     printf("Command %s not found\n", tokens[0]);
@@ -98,7 +97,7 @@ char splitString(char str[], char **tokens){
     printf("%d\n", num_words);
     printf("'%s'\n", tokens[0]);
 
-    return tokens;
+    return **tokens;
 
 }
 
