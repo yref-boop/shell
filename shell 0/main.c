@@ -33,14 +33,17 @@ void cmd_autores(char *tokens[]){
 }
 
 
-void cmd_carpeta(char *tokens[]){
+void cmd_carpeta(char **tokens){
     char dir[MAXLINE];
 
-    if(tokens[1] == NULL)
+    if(&tokens[1] == NULL)
         printf("%s\n", getcwd(dir, MAXLINE));
-    else
-    if(chdir(*tokens) == -1)
-        perror("Cannot change directory: Permission denied\n");
+    else {
+        if (chdir(*tokens) == -1)
+            perror("Cannot change directory: Permission denied\n");
+        else
+            printf("%s\n", getcwd(dir, MAXLINE));
+    }
 }
 
 
@@ -65,12 +68,12 @@ void processInput(char **tokens){
 
     for(i = 0 ; C[i].name != NULL ; i++){
         if(!strcmp(tokens[0], C[i].name )){
-            (C[i].func)(&tokens[i]);
+            (C[i].func)(tokens);
             break;
         }
     }
     if(C[i].name == NULL )
-    printf("Command %s not found\n", tokens[0]);
+        printf("Command %s not found\n", tokens[0]);
 }
 
 
@@ -90,16 +93,13 @@ char splitString(char str[], char **tokens){
 
     while(ptr != NULL){
         num_words++;
-        int size_ptr = sizeof(ptr);
-
         tokens[i]=ptr;
         i++;
-
-        printf("'%s'\n", ptr);
+        //printf("'%s'\n", ptr);
         ptr = strtok(NULL, delim);
     }
-    printf("%d\n", num_words);
-    printf("'%s'\n", tokens[0]);
+    //printf("%d\n", num_words);
+    //printf("'%s'\n", tokens[0]);
 
     return **tokens;
 
