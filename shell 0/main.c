@@ -53,12 +53,12 @@ void cmd_pid(char *tr[]){
 
 
 void cmd_fin(char *tr[]) {
-    exit;
+    exit(1);
 }
 
 
 void processInput(char **tokens){
-    if(0!=(strcmp(tokens[0], NULL)))
+    if (tokens[0] == NULL )
         return;
 
     for(int i = 0 ; C[i].name != NULL ; i++){
@@ -75,7 +75,7 @@ void processInput(char **tokens){
 
 //this function is used to split the string (named previously as trocearCadena())
 //and to count the number of words written
-void splitString(char str[]){
+char splitString(char str[], char **tokens){
     char strc[MAXLINE];
     strcpy(strc,str);
     int num_words = 0;
@@ -83,7 +83,6 @@ void splitString(char str[]){
 
     char *ptr = strtok(strc, delim);
 
-    char **tokens = malloc(MAXLINE);
     int i=0;
 
     while(ptr != NULL){
@@ -98,20 +97,24 @@ void splitString(char str[]){
     }
     printf("%d\n", num_words);
     printf("'%s'\n", tokens[0]);
+
+    return tokens;
+
 }
 
 
 
 int main(){
     char str[MAXLINE];
+    char **tokens = malloc(MAXLINE);
 
     while(1){
         printf("$ ");
         fgets(str, MAXLINE, stdin);
         str[strcspn(str, "\n")] = 0;
+        splitString(str, tokens);
+        processInput(tokens);
 
-        splitString(str);
-       // processInput(str);
     }
 
     return 0;
