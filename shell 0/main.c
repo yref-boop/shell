@@ -39,8 +39,8 @@ void cmd_carpeta(char *tokens[]){
     if(tokens[1] == NULL)
         printf("%s\n", getcwd(dir, MAXLINE));
     else
-        if(chdir(*tokens) == -1)
-            perror("Cannot change directory: Permission denied\n");
+    if(chdir(*tokens) == -1)
+        perror("Cannot change directory: Permission denied\n");
 }
 
 
@@ -58,14 +58,18 @@ void cmd_fin(char *tokens[]) {
 
 
 void processInput(char **tokens){
+    int i;
+
     if (tokens[0] == NULL )
         return;
 
-    for(int i = 0 ; C[i].name != NULL ; i++){
-        if(!strcmp(tokens[0], C[i].name ))
+    for(i = 0 ; C[i].name != NULL ; i++){
+        if(!strcmp(tokens[0], C[i].name )){
             (C[i].func)(&tokens[i]);
+            break;
+        }
     }
-
+    if(C[i].name == NULL )
     printf("Command %s not found\n", tokens[0]);
 }
 
