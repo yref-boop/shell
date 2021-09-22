@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define MAXLINE 1024
 
@@ -10,6 +11,7 @@ void cmd_fin(char**);
 void cmd_carpeta(char**);
 void cmd_autores(char**);
 void cmd_pid(char**);
+void cmd_fecha(char**);
 
 
 struct CMD{
@@ -24,70 +26,130 @@ struct CMD C[]={
         {"carpeta", cmd_carpeta},
         {"autores", cmd_autores},
         {"pid", cmd_pid},
+        {"fecha", cmd_fecha},
         {NULL, NULL}
 };
 
-void cmd_autores(char *tr[]){           //modificado *tr a *tr[]
-    printf("los autores son... \n");
-};
 
-void cmd_carpeta(char *tr[]){
+void cmd_autores(char **tokens){
+
+    if (tokens[1] == NULL)
+        printf("Alejandro Fernandez Vazquez    a.fernandez9@udc.es\nYago Fernandez Rego            yago.fernandez.rego@udc.es\n");
+    else if (!strcmp(tokens[1], "-l"))
+        printf("a.fernandez9@udc.es\nyago.fernandez.rego@udc.es\n");
+    else if (!strcmp(tokens[1], "-n"))
+        printf("Alejandro Fernandez Vazquez\nYago Fernandez Rego\n");
+    else printf("Command %s %s not found\n", tokens[0], tokens[1]);
+
+}
+
+
+void cmd_carpeta(char **tokens){
+
     char dir[MAXLINE];
 
-    if(tr[1] == NULL)
+    if (tokens[1] == NULL)
         printf("%s\n", getcwd(dir, MAXLINE));
-    else
-        if(chdir(tr) == -1)
+    else {
+        if (chdir(tokens[1]) == -1)
+
             perror("Cannot change directory: Permission denied\n");
+        else
+            printf("%s\n", getcwd(dir, MAXLINE));
+    }
 }
 
-void cmd_pid(char *tr[]){
-    if(tr[0] == NULL)
-        printf("Shell parent process pid: %d\n", getpid());
-    else
+
+void cmd_pid(char **tokens){
+
+    if (tokens[1] == NULL)
         printf("Shells process pid: %d\n", getpid());
+    else if (0 == (strcmp(tokens[1], "-p")))
+        printf("Shell parent process pid: %d\n", getppid());
+    else
+        printf("Command %s %s not found\n", tokens[0], tokens[1]);
 }
 
-void cmd_fin(){
-    exit(0);
+void cmd_fecha(char **tokens){
+
+    time_t T = time(NULL);
+    struct tm tm = *localtime(&T);
+
+    if (tokens[1] == NULL) {
+        printf("System Date is: %02d/%02d/%04d\n", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900);
+        printf("System Time is: %02d:%02d:%02d\n", tm.tm_hour, tm.tm_min, tm.tm_sec);
+    }
+    else if (0 == (strcmp(tokens[1], "-d")))
+        printf("System Date is: %02d/%02d/%04d\n", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900);
+    else if (0 == (strcmp(tokens[1], "-h")))
+        printf("System Time is: %02d:%02d:%02d\n", tm.tm_hour, tm.tm_min, tm.tm_sec);
+    else
+        printf("Command %s %s not found\n", tokens[0], tokens[1]);
 }
 
-int trocearCadena(char *cadena, char *trozos) {
-    int i = 1;
-            if((trozos[0] = strtok(cadena, "\n\t")) == NULL)
-                return 0;
-            while((trozos[i] = strtok(NULL, "\n\t")) != NULL)
-                i++;
-            return i;
+void cmd_fin(char **tokens) {
+    exit(1);
 }
 
 
-void procesarEntrada(char *tr[]){
+void processInput(char **tokens){
     int i;
 
-    if(tr[0] == NULL)
+    if (tokens[0] == NULL )
         return;
-    for(i=0; C[i].name != NULL; i++){
-        if(!strcmp(tr[0], C[i].name))
-            (*C[i], func)(tr+i);
-        return;
-    }
 
-    printf("Command not found \n", tr[0]);
+    for (i = 0 ; C[i].name != NULL ; i++){
+        if (!strcmp(tokens[0], C[i].name )){
+            (C[i].func)(tokens);
+            break;
+        }
+    }
+    if (C[i].name == NULL )
+        printf("Command %s not found\n", tokens[0]);
+}
+
+
+
+
+//this function is used to split the string (named previously as trocearCadena())
+//and to count the number of words written
+char splitString(char str[], char **tokens){
+    char strc[MAXLINE];
+    strcpy(strc,str);
+    int num_words = 0;
+    char delim[] = " \t\a\r\n";
+
+    char *ptr = strtok(strc, delim);
+
+    int i=0;
+
+    while(ptr != NULL){
+        num_words++;
+        tokens[i]=ptr;
+        i++;
+        //printf("'%s'\n", ptr);
+        ptr = strtok(NULL, delim);
+    }
+    //printf("%d\n", num_words);
+    //printf("'%s'\n", tokens[0]);
+
+    return **tokens;
+
 }
 
 
 
 int main(){
-    char linea[MAXLINE];
-    char *tr[MAXLINE/2];
+    char str[MAXLINE];
+    char **tokens = malloc(MAXLINE);
 
     while(1){
         printf("$ ");
-        fgets(linea, MAXLINE, stdin);
-        trocearCadena(linea, tr);
+        fgets(str, MAXLINE, stdin);
+        str[strcspn(str, "\n")] = 0;
+        splitString(str, tokens);
+        processInput(tokens);
 
-        procesarEntrada(char *tr[]);
     }
 
     return 0;
