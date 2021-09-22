@@ -12,6 +12,7 @@ void cmd_carpeta(char**);
 void cmd_autores(char**);
 void cmd_pid(char**);
 void cmd_fecha(char**);
+void cmd_ayuda(char**);
 
 
 struct CMD{
@@ -27,6 +28,7 @@ struct CMD C[]={
         {"autores", cmd_autores},
         {"pid", cmd_pid},
         {"fecha", cmd_fecha},
+        {"ayuda", cmd_ayuda},
         {NULL, NULL}
 };
 
@@ -91,6 +93,128 @@ void cmd_fin(char **tokens) {
     exit(1);
 }
 
+void cmd_ayuda(char **tokens){
+    if (tokens[1] == NULL){
+        printf("All the avaliable commands are: \n");
+
+        for (int i = 0 ; C[i].name != NULL ; i++){
+            printf("%s\n", C[i].name);
+        }
+    }
+    else {
+        if( (0==(strcmp(tokens[1], "fin"))) || (0==(strcmp(tokens[1], "salir"))) || (0==(strcmp(tokens[1], "bye"))))
+            printf("This command ends the shell");
+
+        else if((0==(strcmp(tokens[1], "autores")))){
+            printf("The command %s gives info on the authors of the code, ", tokens[1]);
+
+            if(tokens[2] == NULL){
+                printf("by default both the names and the logins will be printed\n");
+                printf("there exist two variations of this command, <<autores -p>> and <<autores -n>>\n");
+            }
+
+            else if ((0==(strcmp(tokens[2], "-l")))){
+                printf("the parameter %s specifies that only the logins will be printed\n", tokens[2]);
+            }
+
+            else if ((0==(strcmp(tokens[2], "-n")))){
+                printf("moreover, the parameter %s specifies that only the names will be printed\n", tokens[2]);
+            }
+            else{
+                printf("the parameter %s, however, does not exist for this command\n", tokens[2]);
+            }
+        }
+
+        else if ((0==(strcmp(tokens[1], "fecha")))){
+            printf("The command %s gives info on the current time,", tokens[1]);
+
+            if(tokens[2] == NULL){
+              printf("by default the date and the time are shown ");
+              printf("there exist two variations of this command, <<fecha -d>> and <<fecha -h>>\n");
+            }
+
+            else if ((0==(strcmp(tokens[2], "-d")))){
+                printf(" the parameter %s specifies that only the date will be printed\n", tokens[2]);
+            }
+            else if ((0==(strcmp(tokens[2], "-h")))){
+                printf("moreover, the parameter %s specifies that only the hour will be printed\n", tokens[2]);
+            }
+            else{
+                printf("the parameter %s, however, does not exist for this command\n", tokens[2]);
+            }
+        }
+
+        else if((0==(strcmp(tokens[1], "carpeta")))){
+            printf("The command %s gives info about folders,\n", tokens[1]);
+
+            if(tokens[2] == NULL){
+                printf("by default the date and the time are shown\n ");
+                printf("there exist a extra variation of this command, <<carpeta [directory]>> \n");
+            }
+
+            else{
+                printf("when used with an extra parameter, this command changes the current folder to the given parameter %s\n", tokens[2]);
+            }
+        }
+
+        else if((0==(strcmp(tokens[1], "pid")))){
+            printf("The command %s gives info about the current process ID,\n", tokens[1]);
+
+            if(tokens[2] == NULL){
+                printf("by default the process executing the shell is printed\n ");
+                printf("there exist a extra variation of this command, <pid -p>> \n");
+            }
+
+            else if ((0==(strcmp(tokens[2], "-p")))) {
+                printf("when used with %s parameter, the program prints the ID os the parent process of the shell\n", tokens[2]);
+            }
+
+            else {
+                printf("the parameter %s, however, does not exist for this command\n", tokens[2]);
+            }
+        }
+
+        else if((0==(strcmp(tokens[1], "hist")))){
+            printf("The command %s gives info about the commands previosly executed on the shell,\n", tokens[1]);
+
+            if(tokens[2] == NULL){
+                printf("by default it prints all the commands that have been input and their order number\n ");
+                printf("there exist two extra variations of this command, <<hist -c>>> and <<hist -N>> \n");
+            }
+
+            else if ((0==(strcmp(tokens[2], "-c")))) {
+                printf("when used with %s parameter, the command clears the list of historic commands\n", tokens[2]);
+            }
+
+            //PARAMETRO N (revisar como lo implementa ferni)
+
+
+            else {
+                printf("the parameter %s, however, does not exist for this command\n", tokens[2]);
+            }
+        }
+
+        else if((0==(strcmp(tokens[1], "infosis"))))
+            printf("the command %s gives info about the current system, there are no variations of this command\n", tokens[1]);
+
+        else if((0==(strcmp(tokens[1], "ayuda")))){
+            printf("The command %s gives a brief summary of the commands,\n", tokens[1]);
+
+            if(tokens[2] == NULL){
+                printf("by default it lists all the possible commands\n ");
+                printf("there exist an extra variations of this command, <<ayuda -cmd>>\n");
+            }
+
+            else if (tokens[2]!=NULL) {
+                printf("when used with an extra parameter, the command gives info about an specific command, if it exists \n");
+            }
+        }
+        else if (tokens[1]!=NULL){
+            printf("the command %s cannot be found", tokens[1]);
+        }
+    }
+}
+
 
 void processInput(char **tokens){
     int i;
@@ -99,7 +223,7 @@ void processInput(char **tokens){
         return;
 
     for (i = 0 ; C[i].name != NULL ; i++){
-        if (!strcmp(tokens[0], C[i].name )){
+        if (0 == (strcmp(tokens[0], C[i].name))){
             (C[i].func)(tokens);
             break;
         }
