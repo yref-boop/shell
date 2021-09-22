@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/utsname.h>
+
 
 #define MAXLINE 1024
 
@@ -13,6 +15,7 @@ void cmd_autores(char**);
 void cmd_pid(char**);
 void cmd_fecha(char**);
 void cmd_ayuda(char**);
+void cmd_infosis(char**);
 
 
 struct CMD{
@@ -29,6 +32,7 @@ struct CMD C[]={
         {"pid", cmd_pid},
         {"fecha", cmd_fecha},
         {"ayuda", cmd_ayuda},
+        {"infosis", cmd_infosis},
         {NULL, NULL}
 };
 
@@ -93,10 +97,15 @@ void cmd_fin(char **tokens) {
     exit(1);
 }
 
+void cmd_infosis(char **tokens){
+    struct utsname unameData;
+    uname(&unameData);
+    printf("Name of the system: %s\nName of this node: %s\nCurrent release: %s\nCurrent version: %s\nHardware type: %s\n", unameData.sysname, unameData.nodename, unameData.release, unameData.version, unameData.machine);
+}
+
 void cmd_ayuda(char **tokens){
     if (tokens[1] == NULL){
         printf("All the avaliable commands are: \n");
-
         for (int i = 0 ; C[i].name != NULL ; i++){
             printf("%s\n", C[i].name);
         }
