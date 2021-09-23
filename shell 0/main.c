@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <sys/utsname.h>
+#include "hist.c"
 
 #define MAXLINE 1024
 
@@ -112,7 +113,7 @@ void cmd_ayuda(char **tokens) {
     } else {
         if ((0 == (strcmp(tokens[1], "fin"))) || (0 == (strcmp(tokens[1], "salir"))) ||
             (0 == (strcmp(tokens[1], "bye"))))
-            printf("This command ends the shell");
+            printf("This command ends the shell\n");
 
         else if ((0 == (strcmp(tokens[1], "autores")))) {
             printf("The command %s gives info on the authors of the code, ", tokens[1]);
@@ -168,8 +169,11 @@ void cmd_hist(char **tokens) {
             count ++;
         }
     }
-    else if (!strcmp(tokens[1], "-c")) {
-
+    else if (0==(strcmp(tokens[1], "-c"))) {
+        if(list == NULL){
+            printf("There are no commands stored in memory\n");
+            return;
+        }
         for (tCommand_pos i = first(list); i != NULL_COMMAND;) {
             prev = i;
             i = next(i, list);
@@ -191,7 +195,7 @@ void cmd_fin(char **tokens) {
     exit(1);
 }
 
-void processInput(char **tokens) {
+void processInput(char **tokens, char str[]) {
 
     int i;
     struct tNode node;
@@ -203,19 +207,42 @@ void processInput(char **tokens) {
     for (i = 0 ; C[i].name != NULL ; i++){
         if (!strcmp(tokens[0], C[i].name)){
             node.next = NULL_COMMAND;
-            strcpy(command, tokens[0]);
-            if (tokens[1] != NULL_COMMAND) {
+
+
+
+            char strc[MAXLINE];
+            strcpy(strc, str);
+
+            strcpy(command, strc);
+
+            /*
+            if (tokens[1] == NULL_COMMAND)
+                strcpy(command, tokens[0]);
+
+
+
+            else if (tokens[2] == NULL_COMMAND) {
+                strcpy(command, tokens[0]);
                 strcat(command, " ");
                 strcat(command, tokens[1]);
+                printf("%s",tokens[1]);
             }
+            else{
+                strcpy(command, tokens[0]);
+                strcat(command, " ");
+                strcat(command, tokens[1]);
+                strcat(command, " ");
+                strcat(command, tokens[2]);
+            }
+            */
             strcpy(node.data.command, command);
             insertItem(node, &list);
+
             (C[i].func)(tokens);
-            tokens[1] = NULL_COMMAND;
+//            tokens[1] = NULL_COMMAND;
             break;
         }
     }
-
     if (C[i].name == NULL)
         printf("Command %s not found\n", tokens[0]);
 }
@@ -225,6 +252,8 @@ void processInput(char **tokens) {
 //this function is used to split the string (named previously as trocearCadena())
 //and to count the number of words written
 char splitString(char str[], char **tokens){
+
+
     char strc[MAXLINE];
     strcpy(strc, str);
     int num_words = 0;
@@ -240,7 +269,6 @@ char splitString(char str[], char **tokens){
         i++;
         ptr = strtok(NULL, delim);
     }
-
     return **tokens;
 }
 
@@ -261,7 +289,7 @@ void cmd_comando(char **tokens) {
                 tokens[1] = NULL_COMMAND;
                 printf("%s\n", getItem(previous(i, list), list).command);
                 splitString(getItem(previous(i, list), list).command, tokens);
-                processInput(tokens);
+                processInput(tokens, "");
             }
             else
                 printf("");
@@ -284,7 +312,7 @@ int main(){
         fgets(str, MAXLINE, stdin);
         str[strcspn(str, "\n")] = 0;
         splitString(str, tokens);
-        processInput(tokens);
+        processInput(tokens,str);
     }
 
     return 0;
