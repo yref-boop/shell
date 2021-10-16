@@ -6,8 +6,8 @@
 #include <time.h>
 #include <sys/utsname.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <errno.h>
+#include <dirent.h>
 
 #define MAXLINE 1024
 
@@ -28,7 +28,7 @@ void cmd_fin(char**);
 
 tHist list;
 
-struct CMD{
+struct CMD {
     char *name;
     void(*func)(char**);
 };
@@ -53,46 +53,34 @@ struct CMD C[]={
         {NULL, NULL}
 };
 
-
-void rek_mkdir(char *path) {
-    char *sep = strrchr(path, '/');
-    if(sep != NULL) {
-        *sep = 0;
-        rek_mkdir(path);
-        *sep = '/';
-    }
-    if(mkdir(path, 0777) && errno != EEXIST)
-        printf("Error while trying to create '%s'\n%m\n", path);
-}
-
-void cmd_crear(char **tokens){
+void show_dir() {
 
     char dir[MAXLINE];
-    getcwd(dir, MAXLINE);
+    char *a = getcwd(dir, MAXLINE);
 
-    //if (tokens[1] != NULL) {
-/*
-        if (!(strcmp(tokens[1], "-f"))) {
-            rek_mkdir(strcat(dir, tokens[2]));
-        }
-*/
+    if (a) printf("%s\n", getcwd(dir, MAXLINE));
+    else perror("error");
+}
 
-    //}
-/*
-    FILE *fopen_mkdir(char *path, char *mode) {
-        char *sep = strrchr(path, '/');
-        if(sep) {
-            char *path0 = strdup(path);
-            path0[ sep - path ] = 0;
-            rek_mkdir(path0);
-            free(path0);
-        }
-        return fopen(path,mode);
+void cmd_crear(char **tokens) {
+
+    if (tokens[1] == NULL) {
+        show_dir();
+        return;
     }
-*/
+
+    if (strcmp(tokens[1], "-f") == 0) {
+        if(fopen(tokens[2], "w") == NULL)
+            printf("Error while trying to create ''\n%m\n");
+    } else {
+        if(mkdir(tokens[1], 0777) && (errno != EEXIST))
+            printf("Error while trying to create ''\n%m\n");
+    }
+
 }
 
 void cmd_borrar(char **tokens){
+
 
 }
 
@@ -100,17 +88,54 @@ void cmd_borrarrec(char **tokens){
 
 }
 
+void show_dir_content(char * path)
+{
+    DIR * d = opendir(path); // open the path
+    if(d==NULL) return; // if was not able, return
+    struct dirent * dir; // for the directory entries
+    while ((dir = readdir(d)) != NULL) // if we were able to read somehting from the directory
+    {
+        if(dir-> d_type != DT_DIR) // if the type is not directory just print it with blue color
+            printf("%s\n", dir->d_name);
+        else
+        if(dir -> d_type == DT_DIR && strcmp(dir->d_name,".")!=0 && strcmp(dir->d_name,"..")!=0 ) // if it is a directory
+        {
+            printf("%s\n", dir->d_name); // print its name in green
+            char d_path[255]; // here I am using sprintf which is safer than strcat
+            sprintf(d_path, "%s/%s", path, dir->d_name);
+            show_dir_content(d_path); // recall with the new path
+        }
+    }
+    closedir(d); // finally close the directory
+}
+
 void cmd_listfich(char **tokens){
 
+    show_dir_content(tokens[1]);
+    return;
+
+    bool lo, li, ac = false;
+    int arg = 2;
+
+    for (; !strcmp(tokens[arg], "-long") || !strcmp(tokens[arg], "-link") || !strcmp(tokens[arg], "-acc"); arg++) {
+        switch (tokens[arg][2]) {
+            case 'o': lo = true; break;
+            case 'i': li = true; break;
+            case 'a': ac = true; break;
+        }
+    }
+
+
+
 }
+
+
 
 void cmd_listdir(char **tokens){
 
 }
 
-
-
-void cmd_autores(char **tokens){
+void cmd_autores(char **tokens) {
 
     if (tokens[1] == NULL)
         printf("Alejandro Fernandez Vazquez    a.fernandez9@udc.es\nYago Fernandez Rego            yago.fernandez.rego@udc.es\n");
@@ -122,23 +147,19 @@ void cmd_autores(char **tokens){
 
 }
 
-
-void cmd_carpeta(char **tokens){
-
-    char dir[MAXLINE];
+void cmd_carpeta(char **tokens) {
 
     if (tokens[1] == NULL)
-        printf("%s\n", getcwd(dir, MAXLINE));
+        show_dir();
     else {
         if (chdir(tokens[1]) == -1)
             perror("Cannot change directory: Permission denied\n");
         else
-            printf("%s\n", getcwd(dir, MAXLINE));
+            show_dir();
     }
 }
 
-
-void cmd_pid(char **tokens){
+void cmd_pid(char **tokens) {
 
     if (tokens[1] == NULL)
         printf("Shells process pid: %d\n", getpid());
@@ -148,7 +169,7 @@ void cmd_pid(char **tokens){
         printf("Command %s %s not found\n", tokens[0], tokens[1]);
 }
 
-void cmd_fecha(char **tokens){
+void cmd_fecha(char **tokens) {
 
     time_t T = time(NULL);
     struct tm tm = *localtime(&T);
@@ -165,7 +186,7 @@ void cmd_fecha(char **tokens){
         printf("Command %s %s not found\n", tokens[0], tokens[1]);
 }
 
-void cmd_infosis(char **tokens){
+void cmd_infosis(char **tokens) {
     struct utsname unameData;
     uname(&unameData);
     printf("Name of the system: %s\nName of this node: %s\nCurrent release: %s\nCurrent version: %s\nHardware type: %s\n",
@@ -173,11 +194,6 @@ void cmd_infosis(char **tokens){
 }
 
 void cmd_ayuda(char **tokens) {
-
-    if (tokens[3] != NULL_COMMAND) {
-        printf("Too many arguments\n");
-        return;
-    }
 
     if (tokens[1] == NULL){
         printf("All the avaliable commands are: \n");
@@ -266,7 +282,7 @@ void cmd_ayuda(char **tokens) {
         else if((0==(strcmp(tokens[1], "pid")))){
             printf("The command %s gives info about the current process ID,\n", tokens[1]);
 
-            if(tokens[3]!=NULL){
+            if(tokens[3] != NULL_COMMAND){
                 printf("Too many arguments\n");
                 return;
             }
@@ -393,9 +409,9 @@ void processInput(char **tokens, char str[]) {
     if (tokens[0] == NULL_COMMAND) return;
 
     for (i = 0 ; C[i].name != NULL ; i++){
-        if (!strcmp(tokens[0], C[i].name)){
+        if (!strcmp(tokens[0], C[i].name)) {
             node.next = NULL_COMMAND;
-            strcpy(node.data.command, str);
+            //strcpy(str, node.data.command);
 
             if (i > 1)
                 insertItem(node, &list);
@@ -419,15 +435,12 @@ char splitString(char str[], char **tokens){
 
     char strc[MAXLINE];
     strcpy(strc, str);
-    int num_words = 0;
     char delim[] = " \t\a\r\n";
     char *ptr = strtok(strc, delim);
-
     int i=0;
 
     while(ptr != NULL){
-        num_words++;
-        tokens[i]=ptr;
+        tokens[i] = ptr;
         i++;
         ptr = strtok(NULL, delim);
     }

@@ -1,7 +1,7 @@
 #ifndef SHELL_HIST_H
 #define SHELL_HIST_H
 
-#include <stdbool.h> //included in order to be able to use the bool datatype
+#include <stdbool.h>
 #include <stdlib.h>
 
 #define COMMAND_LENGTH_LIMIT 1024
