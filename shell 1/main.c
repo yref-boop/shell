@@ -81,7 +81,19 @@ void cmd_crear(char **tokens) {
 
 void cmd_borrar(char **tokens){
 
+    if (tokens[1] == NULL) {
+        show_dir();
+        return;
+    }
 
+    int token_point = 1;
+
+    while (tokens[token_point] != NULL){
+        if(remove(tokens[token_point])==0)
+            printf("File deleted successfully \n");
+        else printf("File not deleted \n");
+        token_point++;
+    }
 }
 
 void cmd_borrarrec(char **tokens){
@@ -416,7 +428,7 @@ void processInput(char **tokens, char str[]) {
             if (i > 1)
                 insertItem(node, &list);
 
-            if ((i != 2) && (i != 3) && (tokens[2] != NULL_COMMAND))
+            if ((i != 2) && (i != 3)  && (i != 9) && (tokens[2] != NULL_COMMAND))
                 printf("Too many arguments\n");
             else
                 (C[i].func)(tokens);
