@@ -98,6 +98,10 @@ void cmd_borrar(char **tokens){
 
 void cmd_borrarrec(char **tokens){
 
+    if (tokens[1] == NULL) {
+        show_dir();
+        return;
+    }
 }
 
 void show_dir_content(char * path)
@@ -121,24 +125,77 @@ void show_dir_content(char * path)
     closedir(d); // finally close the directory
 }
 
+//auxiliar function to get the size of a file
+long int aux_size(const char* file_name){
+    struct stat st;
+    if(stat(file_name, &st)==0)
+        return (st.st_size);
+    else
+        return -1;
+}
+
+
+/*
+ *  if no options are given: size and name of each file
+ *  if no name,  print current working directory
+ *  -long: date of last modification(YYYYMMDD-HH:mm), number of links,
+ *      owner, group, mode (drwx format), size, name file
+ *      if any name is a directory, its info will also be printed
+ *      format: date number_of_links (inode_number) owner group mode size name
+ *  -link: for long listings: if file is symbolic link the name of the file it point to is also printed
+ *      format: date number_of_links (inode_number) owner group mode size name->file_link_points_to
+ *  -acc last access time will be used instead of last modification time
+ */
 void cmd_listfich(char **tokens){
 
-    show_dir_content(tokens[1]);
-    return;
+    if (tokens[1] == NULL) {
+        show_dir();
+        return;
+    }
+
+    if (tokens[2] ==NULL) {
+        show_dir_content(tokens[1]);
+        return;
+    }
 
     bool lo, li, ac = false;
     int arg = 2;
 
     for (; !strcmp(tokens[arg], "-long") || !strcmp(tokens[arg], "-link") || !strcmp(tokens[arg], "-acc"); arg++) {
-        switch (tokens[arg][2]) {
+        switch (tokens[arg][1]) {
             case 'o': lo = true; break;
             case 'i': li = true; break;
-            case 'a': ac = true; break;
+            case 'c': ac = true; break;
         }
     }
 
 
 
+    for(; tokens[arg]!=NULL; arg++) { //args already has the value of the first file name
+
+        long int size_file= aux_size(tokens[arg]);
+
+        if (lo == false) {
+            //print size and name
+            printf("%ld %s\n", size_file, tokens[arg]);
+        } else {
+            if ((li == false) && (ac == false)) {
+                //print modification_date number_of_links (inode_number) owner group mode size name
+            }
+
+            if ((ac == true) && (li == true)) {
+                //print access_date number_of_links (inode_number) owner group mode size name->file_links_to
+            }
+
+            if (li == true) {
+                //print modification_date number_of_links (inode_number) owner group mode size name->file_links_to
+            }
+
+            if (ac == true) {
+                //print access_date number_of_links (inode_number) owner group mode size name
+            }
+        }
+    }
 }
 
 
