@@ -8,6 +8,8 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <dirent.h>
+#include <pwd.h>
+#include <grp.h>
 
 #define MAXLINE 1024
 
@@ -126,7 +128,7 @@ void show_dir_content(char * path)
 }
 
 //auxiliar function to get the size of a file
-long int aux_size(const char* file_name){
+long int aux_file_size(const char* file_name){
     struct stat st;
     if(stat(file_name, &st)==0)
         return (st.st_size);
@@ -153,16 +155,13 @@ void cmd_listfich(char **tokens){
         return;
     }
 
-    if (tokens[2] ==NULL) {
-        show_dir_content(tokens[1]);
-        return;
-    }
+
 
     bool lo, li, ac = false;
-    int arg = 2;
+    int arg = 1;
 
     for (; !strcmp(tokens[arg], "-long") || !strcmp(tokens[arg], "-link") || !strcmp(tokens[arg], "-acc"); arg++) {
-        switch (tokens[arg][1]) {
+        switch (tokens[arg][2]) {
             case 'o': lo = true; break;
             case 'i': li = true; break;
             case 'c': ac = true; break;
@@ -173,26 +172,147 @@ void cmd_listfich(char **tokens){
 
     for(; tokens[arg]!=NULL; arg++) { //args already has the value of the first file name
 
-        long int size_file= aux_size(tokens[arg]);
+        //long int size_file= aux_file_size(tokens[arg]);
+        struct stat     st;
+        struct passwd   *pwd;
+        struct group    *grp;
+
+        if (stat(tokens[arg], &st) != 0)
+        {
+            printf("Unable to get file properties.\n");
+            printf("Please check whether '%s' file exists.\n", tokens[arg]);
+            break;
+        }
 
         if (lo == false) {
             //print size and name
-            printf("%ld %s\n", size_file, tokens[arg]);
+            printf("%ld %s\n", st.st_size, tokens[arg]);
         } else {
             if ((li == false) && (ac == false)) {
                 //print modification_date number_of_links (inode_number) owner group mode size name
+                printf("%s", ctime(&st.st_mtime));
+                printf("%ld", st.st_nlink);
+                printf("%ld", st.st_ino);
+
+                if ((pwd = getpwuid(st.st_uid)) != NULL)
+                    printf(" %-8.8s", pwd->pw_name);
+                else
+                    printf(" %-8d", st.st_uid);
+
+                if ((grp = getgrgid(st.st_gid)) != NULL)
+                    printf(" %-8.8s", grp->gr_name);
+                else
+                    printf(" %-8d", st.st_gid);
+
+                printf( (S_ISDIR(st.st_mode)) ? "d" : "-");
+                printf( (st.st_mode & S_IRUSR) ? "r" : "-");
+                printf( (st.st_mode & S_IWUSR) ? "w" : "-");
+                printf( (st.st_mode & S_IXUSR) ? "x" : "-");
+                printf( (st.st_mode & S_IRGRP) ? "r" : "-");
+                printf( (st.st_mode & S_IWGRP) ? "w" : "-");
+                printf( (st.st_mode & S_IXGRP) ? "x" : "-");
+                printf( (st.st_mode & S_IROTH) ? "r" : "-");
+                printf( (st.st_mode & S_IWOTH) ? "w" : "-");
+                printf( (st.st_mode & S_IXOTH) ? "x" : "-");
+
+                printf(" %ld %s\n", st.st_size, tokens[arg]);
+                break;
+
             }
 
             if ((ac == true) && (li == true)) {
                 //print access_date number_of_links (inode_number) owner group mode size name->file_links_to
+
+                printf("%s", ctime(&st.st_atime));
+                printf("%ld", st.st_nlink);
+                printf("%ld", st.st_ino);
+
+                if ((pwd = getpwuid(st.st_uid)) != NULL)
+                    printf(" %-8.8s", pwd->pw_name);
+                else
+                    printf(" %-8d", st.st_uid);
+
+                if ((grp = getgrgid(st.st_gid)) != NULL)
+                    printf(" %-8.8s", grp->gr_name);
+                else
+                    printf(" %-8d", st.st_gid);
+
+                printf( (S_ISDIR(st.st_mode)) ? "d" : "-");
+                printf( (st.st_mode & S_IRUSR) ? "r" : "-");
+                printf( (st.st_mode & S_IWUSR) ? "w" : "-");
+                printf( (st.st_mode & S_IXUSR) ? "x" : "-");
+                printf( (st.st_mode & S_IRGRP) ? "r" : "-");
+                printf( (st.st_mode & S_IWGRP) ? "w" : "-");
+                printf( (st.st_mode & S_IXGRP) ? "x" : "-");
+                printf( (st.st_mode & S_IROTH) ? "r" : "-");
+                printf( (st.st_mode & S_IWOTH) ? "w" : "-");
+                printf( (st.st_mode & S_IXOTH) ? "x" : "-");
+
+                printf("% ld %s -> ", st.st_size, tokens[arg]);
+                break;
+
             }
 
             if (li == true) {
                 //print modification_date number_of_links (inode_number) owner group mode size name->file_links_to
+                printf("%s", ctime(&st.st_mtime));
+                printf("%ld", st.st_nlink);
+                printf("%ld", st.st_ino);
+
+                if ((pwd = getpwuid(st.st_uid)) != NULL)
+                    printf(" %-8.8s", pwd->pw_name);
+                else
+                    printf(" %-8d", st.st_uid);
+
+                if ((grp = getgrgid(st.st_gid)) != NULL)
+                    printf(" %-8.8s", grp->gr_name);
+                else
+                    printf(" %-8d", st.st_gid);
+
+                printf( (S_ISDIR(st.st_mode)) ? "d" : "-");
+                printf( (st.st_mode & S_IRUSR) ? "r" : "-");
+                printf( (st.st_mode & S_IWUSR) ? "w" : "-");
+                printf( (st.st_mode & S_IXUSR) ? "x" : "-");
+                printf( (st.st_mode & S_IRGRP) ? "r" : "-");
+                printf( (st.st_mode & S_IWGRP) ? "w" : "-");
+                printf( (st.st_mode & S_IXGRP) ? "x" : "-");
+                printf( (st.st_mode & S_IROTH) ? "r" : "-");
+                printf( (st.st_mode & S_IWOTH) ? "w" : "-");
+                printf( (st.st_mode & S_IXOTH) ? "x" : "-");
+
+                printf("% ld %s\n", st.st_size, tokens[arg]);
+                break;
             }
 
             if (ac == true) {
                 //print access_date number_of_links (inode_number) owner group mode size name
+                printf("%s", ctime(&st.st_atime));
+                printf("%ld", st.st_nlink);
+                printf("%ld", st.st_ino);
+
+                if ((pwd = getpwuid(st.st_uid)) != NULL)
+                    printf(" %-8.8s", pwd->pw_name);
+                else
+                    printf(" %-8d", st.st_uid);
+
+                if ((grp = getgrgid(st.st_gid)) != NULL)
+                    printf(" %-8.8s", grp->gr_name);
+                else
+                    printf(" %-8d", st.st_gid);
+
+                printf( (S_ISDIR(st.st_mode)) ? "d" : "-");
+                printf( (st.st_mode & S_IRUSR) ? "r" : "-");
+                printf( (st.st_mode & S_IWUSR) ? "w" : "-");
+                printf( (st.st_mode & S_IXUSR) ? "x" : "-");
+                printf( (st.st_mode & S_IRGRP) ? "r" : "-");
+                printf( (st.st_mode & S_IWGRP) ? "w" : "-");
+                printf( (st.st_mode & S_IXGRP) ? "x" : "-");
+                printf( (st.st_mode & S_IROTH) ? "r" : "-");
+                printf( (st.st_mode & S_IWOTH) ? "w" : "-");
+                printf( (st.st_mode & S_IXOTH) ? "x" : "-");
+
+                printf("% ld %s\n", st.st_size, tokens[arg]);
+                break;
             }
         }
     }
@@ -485,7 +605,7 @@ void processInput(char **tokens, char str[]) {
             if (i > 1)
                 insertItem(node, &list);
 
-            if ((i != 2) && (i != 3)  && (i != 9) && (tokens[2] != NULL_COMMAND))
+            if ((i != 2) && (i != 3)  && (i != 11) && (i != 9) && (tokens[2] != NULL_COMMAND))
                 printf("Too many arguments\n");
             else
                 (C[i].func)(tokens);
