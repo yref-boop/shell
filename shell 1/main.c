@@ -1,4 +1,3 @@
-
 #include "hist.h"
 #include <stdio.h>
 #include <string.h>
@@ -14,28 +13,28 @@
 
 #define MAXLINE 1024
 
-//headers of the functions of each command
 
-void cmd_comando(char**);
-void cmd_hist(char**);
-void cmd_ayuda(char**);
-void cmd_crear(char**);
-void cmd_listfich(char**);
-void cmd_listdir(char**);
-void cmd_carpeta(char**);
-void cmd_autores(char**);
-void cmd_pid(char**);
-void cmd_fecha(char**);
-void cmd_infosis(char**);
-void cmd_borrar(char**);
-int cmd_borrarrec(char**);
-void cmd_fin(char**);
-void read_directory();
-
-//defines the value of a list in which we will keep the historic commands
+void show_dir();
+void cmd_crear(char **);
+void cmd_borrar(char **);
+void print_file(bool **, char *);
+int cmd_borrarrec(char **);
+void show_dir_content(char *);
+bool list_detect(bool **, int, char **, bool, bool);
+void cmd_listfich(char **);
+void dir(char *, bool **);
+void recursive(char *, bool **, int);
+void cmd_listdir(char **);
+void cmd_autores(char **);
+void cmd_carpeta(char **);
+void cmd_pid(char **);
+void cmd_fecha(char **);
+void cmd_infosis(char **);
+void cmd_ayuda(char **);
+void cmd_hist(char **);
+void cmd_fin(char **);
+void cmd_comando(char **);
 tHist list;
-
-//the following struct, C stores all the possible commands for ease of access
 
 struct CMD {
     char *name;
@@ -62,7 +61,424 @@ struct CMD C[]={
         {NULL, NULL}
 };
 
+void show_dir() {
 
+    char dir[MAXLINE];
+    char *a = getcwd(dir, MAXLINE);
+
+    if (a) printf("%s\n", a);
+    else perror("error");
+}
+
+void cmd_crear(char **tokens) {
+
+    if (tokens[1] == NULL) { show_dir(); return; }
+
+    if (strcmp(tokens[1], "-f") == 0) {
+        if(fopen(tokens[2], "w") == NULL)
+            printf("Error while trying to create ''\n%m\n");
+    } else {
+        if(mkdir(tokens[1], 0777) && (errno != EEXIST))
+            printf("Error while trying to create ''\n%m\n");
+    }
+}
+
+void cmd_borrar(char **tokens) {
+
+    if (tokens[1] == NULL) {
+        show_dir();
+        return;
+    }
+
+    int token_point = 1;
+
+    while (tokens[token_point] != NULL){
+        if(remove(tokens[token_point])==0)
+            printf("File deleted successfully \n");
+        else
+            printf("File not deleted \n");
+        token_point++;
+    }
+}
+
+void print_file(bool *op[], char *tokens) {
+
+    //long int size_file = aux_file_size(tokens[arg]);
+    struct stat st;
+    struct passwd *pwd;
+    struct group *grp;
+
+    if (stat(tokens, &st) != 0) {
+        printf("Unable to get file properties.\n");
+        printf("Please check whether '%s' file exists.\n", tokens);
+        return;
+    }
+
+    if (*op[3] == false) {
+        //print size and name
+        printf("%ld %s\n", st.st_size, tokens);
+    } else {
+        //print modification_date number_of_links (inode_number) owner group mode size name->file_links_to
+
+        if (*op[5] == true) {
+            char buffer[80];
+            strftime(buffer, 80, "%Y/%m/%d-%H:%M ", localtime(&st.st_atime));
+            printf("%s", buffer);
+        } else {
+            char buffer[80];
+            strftime(buffer, 80, "%Y/%m/%d-%H:%M ", localtime(&st.st_mtime));
+            printf("%s", buffer);
+        }
+
+        printf("%ld ", st.st_nlink);
+        printf("(%ld)", st.st_ino);
+
+        if ((pwd = getpwuid(st.st_uid)) != NULL)
+            printf(" %-8.8s", pwd->pw_name);
+        else
+            printf(" %-8d", st.st_uid);
+
+        if ((grp = getgrgid(st.st_gid)) != NULL)
+            printf(" %-8.8s", grp->gr_name);
+        else
+            printf(" %-8d", st.st_gid);
+
+        printf((S_ISDIR(st.st_mode)) ? "d" : "-");
+        printf((st.st_mode & S_IRUSR) ? "r" : "-");
+        printf((st.st_mode & S_IWUSR) ? "w" : "-");
+        printf((st.st_mode & S_IXUSR) ? "x" : "-");
+        printf((st.st_mode & S_IRGRP) ? "r" : "-");
+        printf((st.st_mode & S_IWGRP) ? "w" : "-");
+        printf((st.st_mode & S_IXGRP) ? "x" : "-");
+        printf((st.st_mode & S_IROTH) ? "r" : "-");
+        printf((st.st_mode & S_IWOTH) ? "w" : "-");
+        printf((st.st_mode & S_IXOTH) ? "x" : "-");
+
+        if (*op[4] == true) {
+            printf(" %i", st.st_mode);
+            if (st.st_nlink > 1) {
+
+                printf("% ld %s -> ", st.st_size, tokens);
+                char buff[1024];
+                memset(buff, 0, sizeof(buff));
+                if (readlink(tokens, buff, sizeof(buff) - 1) < 0) {
+                    perror("readlink");
+                } else {
+                    printf("%s \n", buff);
+                }
+            } //names that don't start with a slash are of current directory
+        } else
+            printf("% ld %s\n", st.st_size, tokens);
+    }
+}
+
+int cmd_borrarrec(char **tokens) {
+
+    char path[50];
+    strcpy(path, tokens[1]);
+
+    if (tokens[1] == NULL) {
+        show_dir();
+        return 0;
+
+    } else {
+
+        DIR *d = opendir(path);
+        size_t path_len = strlen(path);
+        int r = -1;
+
+        if (d) {
+            struct dirent *p;
+
+            r = 0;
+            while (!r && (p=readdir(d))) {
+                int r2 = -1;
+                char *buf;
+                size_t len;
+
+                /* Skip the names "." and ".." as we don't want to recurse on them. */
+                if (!strcmp(p->d_name, ".") || !strcmp(p->d_name, ".."))
+                    continue;
+
+                len = path_len + strlen(p->d_name) + 2;
+                buf = malloc(len);
+
+                if (buf) {
+                    struct stat statbuf;
+
+                    snprintf(buf, len, "%s/%s", path, p->d_name);
+                    if (!stat(buf, &statbuf)) {
+                        if (S_ISDIR(statbuf.st_mode)) {
+                            strcpy(tokens[1], buf);
+                            r2 = cmd_borrarrec(tokens);
+                        }
+                        else
+                            r2 = unlink(buf);
+                    }
+                    free((char **) buf);
+                }
+                r = r2;
+            }
+            closedir(d);
+        }
+        if (!r)
+            r = rmdir(path);
+
+        return r;
+    }
+}
+
+void show_dir_content(char *path) {
+
+    DIR * d = opendir(path); // open the path
+    if(d==NULL) return; // if was not able, return
+    struct dirent * dir; // for the directory entries
+    while ((dir = readdir(d)) != NULL) // if we were able to read something from the directory
+    {
+        if(dir-> d_type != DT_DIR) // if the type is not directory
+            printf("%s\n", dir->d_name);
+        else
+        if(dir -> d_type == DT_DIR && strcmp(dir->d_name,".")!=0 && strcmp(dir->d_name,"..")!=0 ) // if it is a directory
+        {
+            printf("%s\n", dir->d_name);
+            char d_path[255]; // here I am using sprintf which is safer than strcat
+            sprintf(d_path, "%s/%s", path, dir->d_name);
+            show_dir_content(d_path); // recall with the new path
+        }
+    }
+    closedir(d); // finally, close the directory
+}
+
+/*
+ *  if no options are given: size and name of each file
+ *  if no name,  print current working directory
+ *  -long: date of last modification(YYYYMMDD-HH:mm), number of links,
+ *      owner, group, mode (drwx format), size, name file
+ *      if any name is a directory, its info will also be printed
+ *      format: date number_of_links (inode_number) owner group mode size name
+ *  -link: for long listings: if file is symbolic link the name of the file it point to is also printed
+ *      format: date number_of_links (inode_number) owner group mode size name->file_link_points_to
+ *  -acc last access time will be used instead of last modification time
+ */
+
+bool list_detect(bool *op[], int arg, char **tokens, bool change, bool isListDir) {
+
+    bool found = false;
+
+    for (int i = 1; i < 7; ++i) {
+        switch (i) {
+            case 1: if ((!strcmp(tokens[arg], "-reca")) && isListDir) {if (change) *op[0] = (bool **) true; else found = true;} break;
+            case 2: if ((!strcmp(tokens[arg], "-recb")) && isListDir) {if (change) *op[1] = (bool **) true; else found = true;} break;
+            case 3: if ((!strcmp(tokens[arg], "-hid")) && isListDir) {if (change) *op[2] = (bool **) true; else found = true;} break;
+            case 4: if (!strcmp(tokens[arg], "-long")) {if (change) *op[3] = (bool **) true; else found = true;} break;
+            case 5: if (!strcmp(tokens[arg], "-link")) {if (change) *op[4] = (bool **) true; else found = true;} break;
+            case 6: if (!strcmp(tokens[arg], "-acc")) {if (change) *op[5] = (bool **) true; else found = true;} break;
+            default: break;
+        }
+    }
+
+    if (!change) { if (!found) return false; else return true; }
+    else
+        return true;
+}
+
+void cmd_listfich(char **tokens) {
+
+    if (tokens[1] == NULL) { show_dir(); return; }
+
+    //ra, rb, hi, lo, li, ac
+    //0   1   2   3   4   5
+
+    bool *op[6];
+
+    for (int i = 0; i < 6; ++i) {
+        op[i] = malloc(sizeof(bool));
+        *op[i] = false;
+    }
+
+    int arg = 1;
+
+    for (; list_detect(op, arg, tokens, false, false); ++arg)
+        list_detect(op, arg, tokens, true, false);
+
+    for(; tokens[arg] != NULL; arg++) { //arg already has the value of the first file name
+        print_file(op, tokens[arg]);
+    }
+}
+
+void dir(char *directory, bool *op[]) {
+
+    struct stat st;
+
+    if (stat(directory, &st) != 0) {
+        printf("Unable to get file properties.\n");
+        printf("Please check whether '%s' file exists.\n", directory);
+        return;
+    }
+
+    DIR* dir = opendir(directory);
+    size_t path_len = strlen(directory);
+
+    if (!dir) { //if it is not a directory
+        print_file(op, directory);
+    } else {
+        print_file(op, directory);
+
+        struct dirent *p;
+
+        while ((p = readdir(dir))) {
+            char *buf;
+            size_t len;
+
+            if (!strcmp(p->d_name, ".") || !strcmp(p->d_name, "..")) {
+                if (*op[2])
+                    print_file(op, p->d_name);
+                continue;
+            }
+
+            len = path_len + strlen(p->d_name) + 2;
+            buf = malloc(len);
+
+            if (buf) {
+                struct stat st2;
+
+                snprintf(buf, len, "%s/%s", directory, p->d_name);
+                if (!stat(buf, &st2)) {
+                    print_file(op, buf);
+                }
+                free((char**) buf);
+            }
+        }
+        closedir(dir);
+    }
+}
+
+void recursive(char *directory, bool *op[], int config) {
+    char path[50];
+    int it = 1;
+    strcpy(path, directory);
+    DIR *d = opendir(path);
+    size_t path_len = strlen(path);
+
+    if (config == 0) {
+        printf("*******");
+        printf("%s\n", path);
+    }
+
+    if (d) {
+        struct dirent *p;
+        p = readdir(d);
+
+        while (it < 3) {
+
+            if (p == NULL) {
+
+                if (it*config == 1) {
+                    printf("*******");
+                    printf("%s\n", path);
+                }
+                it ++;
+                d = opendir(path);
+                path_len = strlen(path);
+                p = readdir(d);
+                continue;
+            }
+
+            char *buf;
+            size_t len;
+
+            if (!strcmp(p->d_name, ".") || !strcmp(p->d_name, "..")) {
+                if ((*op[2]) && (it == 1)) print_file(op, p->d_name);
+                p = readdir(d);
+                continue;
+            }
+
+            len = path_len + strlen(p->d_name) + 2;
+            buf = malloc(len);
+
+            if (buf) {
+                struct stat statbuf;
+                snprintf(buf, len, "%s/%s", path, p->d_name);
+
+                if (!stat(buf, &statbuf)) {
+                    if (S_ISDIR(statbuf.st_mode)) {
+                        if (it == 1 + config) print_file(op, buf);
+                        if (it == 2 - config) recursive(buf, op, config);
+                    }
+                    else
+                    if (it == 1 + config) print_file(op, buf);
+                }
+                free((char **) buf);
+            }
+            if (!(p = readdir(d))) {
+                if (it*config == 1) {
+                    printf("*******");
+                    printf("%s\n", path);
+                }
+                it ++;
+                d = opendir(path);
+                path_len = strlen(path);
+                p = readdir(d);
+            }
+        }
+        closedir(d);
+    }
+}
+
+void cmd_listdir(char **tokens) {
+
+    if (tokens[1] == NULL) { show_dir(); return; }
+
+    int arg = 1;
+    bool *op[6];
+
+    for (int i = 0; i < 6; ++i) {
+        op[i] = malloc(sizeof(bool));
+        *op[i] = false;
+    }
+
+    for (; list_detect(op, arg, tokens, false, true); ++arg)
+        list_detect(op, arg, tokens, true, true);
+
+    if (*op[0] || *op[1]) {
+
+        if (*op[0])
+            for(; tokens[arg] != NULL; arg++) recursive(tokens[arg], op, 0);
+        else
+            for(; tokens[arg] != NULL; arg++) recursive(tokens[arg], op, 1);
+
+    } else
+        //arg already has the value of the first file name
+        for(; tokens[arg] != NULL; arg++) dir(tokens[arg], op);
+}
+
+
+//function corresponding to the command autores
+//autores prints both logins and names of the authors, autores -l only logins and autores -n only names
+
+void cmd_autores(char **tokens) {
+
+    if (tokens[1] == NULL)
+        printf("Alejandro Fernandez Vazquez    a.fernandez9@udc.es\nYago Fernandez Rego            yago.fernandez.rego@udc.es\n");
+    else if (!strcmp(tokens[1], "-l"))
+        printf("a.fernandez9@udc.es\nyago.fernandez.rego@udc.es\n");
+    else if (!strcmp(tokens[1], "-n"))
+        printf("Alejandro Fernandez Vazquez\nYago Fernandez Rego\n");
+    else printf("Command %s %s not found\n", tokens[0], tokens[1]);
+
+}
+
+void cmd_carpeta(char **tokens) {
+
+    if (tokens[1] == NULL)
+        show_dir();
+    else {
+        if (chdir(tokens[1]) == -1)
+            perror("Cannot change directory: Permission denied\n");
+        else
+            show_dir();
+    }
+}
 
 //function corresponding to the command pid
 //pid gives info on the current process, pid -p on ints parent process
@@ -90,7 +506,7 @@ void cmd_fecha(char **tokens) {
         printf("System Date is: %02d/%02d/%04d\n", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900);
         printf("System Time is: %02d:%02d:%02d\n", tm.tm_hour, tm.tm_min, tm.tm_sec);
     }
-    //if there is a second parameter
+        //if there is a second parameter
     else if (!strcmp(tokens[1], "-d"))
         printf("System Date is: %02d/%02d/%04d\n", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900);
     else if (!strcmp(tokens[1], "-h"))
@@ -127,7 +543,7 @@ void cmd_ayuda(char **tokens) {
         printf("\n");
     }
 
-    //if the command contains another command (ayuda cmd) we need to study each case and its parameters:
+        //if the command contains another command (ayuda cmd) we need to study each case and its parameters:
     else {
         //salir, fin and bye cannot have more parameters
         if( (0==(strcmp(tokens[1], "fin"))) || (0==(strcmp(tokens[1], "salir"))) || (0==(strcmp(tokens[1], "bye")))){
@@ -138,7 +554,7 @@ void cmd_ayuda(char **tokens) {
             printf("This command ends the shell\n");
         }
 
-        //the command autores can have -l and -n as parameters
+            //the command autores can have -l and -n as parameters
         else if((0==(strcmp(tokens[1], "autores")))){
             printf("The command %s gives info on the authors of the code, ", tokens[1]);
 
@@ -165,7 +581,7 @@ void cmd_ayuda(char **tokens) {
         }
 
 
-        //the command fecha can be fecha, fecha -d or fecha -h
+            //the command fecha can be fecha, fecha -d or fecha -h
         else if ((0==(strcmp(tokens[1], "fecha")))){
             printf("The command %s gives info on the current time,", tokens[1]);
 
@@ -180,7 +596,7 @@ void cmd_ayuda(char **tokens) {
                 printf("there exist two variations of this command, <<fecha -d>> and <<fecha -h>>\n");
             }
 
-            //if there exists a third parameter, give info if its is -d or -h else say that the parameter is not correct
+                //if there exists a third parameter, give info if its is -d or -h else say that the parameter is not correct
             else if ((0==(strcmp(tokens[2], "-d")))){
                 printf(" the parameter %s specifies that only the date will be printed\n", tokens[2]);
             }
@@ -192,7 +608,7 @@ void cmd_ayuda(char **tokens) {
             }
         }
 
-        //the command carpeta can be carpeta or carpeta<directory>
+            //the command carpeta can be carpeta or carpeta<directory>
         else if((0==(strcmp(tokens[1], "carpeta")))){
             printf("The command %s gives info about folders,\n", tokens[1]);
 
@@ -206,13 +622,13 @@ void cmd_ayuda(char **tokens) {
                 printf("there exist a extra variation of this command, <<carpeta [directory]>> \n");
             }
 
-            //if there exists a third parameter give info
+                //if there exists a third parameter give info
             else{
                 printf("when used with an extra parameter, this command changes the current folder to the given parameter %s\n", tokens[2]);
             }
         }
 
-        //pid can either be pid or pid -p
+            //pid can either be pid or pid -p
         else if((0==(strcmp(tokens[1], "pid")))){
             printf("The command %s gives info about the current process ID,\n", tokens[1]);
 
@@ -235,7 +651,7 @@ void cmd_ayuda(char **tokens) {
             }
         }
 
-        //the command hist can either be his, hist -c or hist -N
+            //the command hist can either be his, hist -c or hist -N
         else if((0==(strcmp(tokens[1], "hist")))) {
             printf("The command %s gives info about the commands previosly executed on the shell,\n", tokens[1]);
 
@@ -265,7 +681,7 @@ void cmd_ayuda(char **tokens) {
             }
         }
 
-        //the command infosis does not have variations
+            //the command infosis does not have variations
         else if((0==(strcmp(tokens[1], "infosis")))) {
             printf("the command %s gives info about the current system, there are no variations of this command\n",
                    tokens[1]);
@@ -276,7 +692,7 @@ void cmd_ayuda(char **tokens) {
             }
         }
 
-        //the command comando does not have variations
+            //the command comando does not have variations
         else if((0==(strcmp(tokens[1], "comando")))) {
             printf("this command executes the command on the list with the wanted position\n");
 
@@ -286,7 +702,7 @@ void cmd_ayuda(char **tokens) {
             }
         }
 
-        //the command ayuda can either be ayuda or ayuda <command>
+            //the command ayuda can either be ayuda or ayuda <command>
         else if((0==(strcmp(tokens[1], "ayuda")))){
             printf("The command %s gives a brief summary of the commands,\n", tokens[1]);
 
@@ -295,13 +711,13 @@ void cmd_ayuda(char **tokens) {
                 printf("there exist an extra variations of this command, <<ayuda -cmd>>\n");
             }
 
-            //if there exists a third parameter, give info on it
+                //if there exists a third parameter, give info on it
             else if (tokens[2]!=NULL) {
                 printf("when used with an extra parameter, the command gives info about an specific command, if it exists \n");
             }
         }
 
-        //the command crear can be either crear <name> or crear -f <name>
+            //the command crear can be either crear <name> or crear -f <name>
         else if((0==(strcmp(tokens[1], "crear")))){
             printf("The command %s <name> creates a file named <name>,\n", tokens[1]);
 
@@ -310,31 +726,31 @@ void cmd_ayuda(char **tokens) {
                 printf("there exist an extra variations of this command: crear -f <name>\n");
             }
 
-            //if there exists a third parameter, give info on it
+                //if there exists a third parameter, give info on it
             else if ((0 == (strcmp(tokens[2], "-f")))) {
                 printf("when used with %s parameter, the command creates a folder\n",
                        tokens[2]);
             }
         }
 
-        //the command borrarrec <name> <name>... does not have variations
+            //the command borrarrec <name> <name>... does not have variations
         else if((0==(strcmp(tokens[1], "borrarrec")))){
             printf("this command deletes files and/or non empty directories with all their contents\n");
             printf("if given without names, prints the current working directory\n");
         }
 
-        //the command borrar <name> <name>... does not have variations
+            //the command borrar <name> <name>... does not have variations
         else if((0==(strcmp(tokens[1], "borrar")))) {
             printf("this command deletes files and/or empty directories\n");
             printf("if given without names, prints the current working directory\n");
         }
 
-        //the command listfich can be listfich, listfich -long <names> , listfich -link <names> or  listfich -acc <names>
+            //the command listfich can be listfich, listfich -long <names> , listfich -link <names> or  listfich -acc <names>
         else if ((0==(strcmp(tokens[1], "listfich")))){
             printf("The command %s gives info on files, directories or devices specified,", tokens[1]);
             printf("if given without names, prints the current working directory\n");
 
-                //if there exists a third parameter, give info if its is -d or -h else say that the parameter is not correct
+            //if there exists a third parameter, give info if its is -d or -h else say that the parameter is not correct
             if ((0==(strcmp(tokens[2], "-long")))){
                 printf("%s implies long listing following the format:\n", tokens[2]);
                 printf("date number of links (inode number) owner group mode size name\n");
@@ -347,8 +763,8 @@ void cmd_ayuda(char **tokens) {
             }
         }
 
-        //the command listdir can be listidir, listdir -long <names> , listdir -link <names> , listdir -acc <names>
-        //listdir -reca <names> , listdir -recb <names> , listdir -hid <names>
+            //the command listdir can be listidir, listdir -long <names> , listdir -link <names> , listdir -acc <names>
+            //listdir -reca <names> , listdir -recb <names> , listdir -hid <names>
         else if ((0==(strcmp(tokens[1], "listdir")))){
             printf("The command %s gives info on files, directories or devices specified,", tokens[1]);
             printf("if name is a directory, it will print its contents\n");
@@ -380,7 +796,7 @@ void cmd_ayuda(char **tokens) {
 
 
 
-        //if there is a second parameter but does not coincide with any:
+            //if there is a second parameter but does not coincide with any:
         else if (tokens[1]!=NULL){
             printf("The command %s cannot be found\n", tokens[1]);
         }
@@ -406,15 +822,15 @@ void cmd_hist(char **tokens) {
             count ++;
         }
     }
-    //if the command is hist -c, delete the list
+        //if the command is hist -c, delete the list
     else if (0==(strcmp(tokens[1], "-c"))) {
         //if already empty, do nothing
         if(list == NULL){
             printf("There are no commands stored in memory\n");
             return;
         }
-            //position needed on next for
-            tCommand_pos prev;
+        //position needed on next for
+        tCommand_pos prev;
 
         //delete one by one until empty, starting at first position
         for (tCommand_pos i = first(list); i != NULL_COMMAND;) {
@@ -423,7 +839,7 @@ void cmd_hist(char **tokens) {
             deleteAtPosition(prev, &list);
         }
     }
-    //if the command is a number, print from first until the Nth or the list reaches its end
+        //if the command is a number, print from first until the Nth or the list reaches its end
     else if (N < 0) {
         for (tCommand_pos pos = first(list); ((pos != NULL_COMMAND) && (count <= abs(N))); pos = next(pos, list)) {
             printf("%d->%s\n", count, getItem(pos, list).command);
@@ -434,13 +850,11 @@ void cmd_hist(char **tokens) {
         printf("Command %s %s not found\n", tokens[0], tokens[1]);
 }
 
-
-//this function is the fin command: it ends the shell
+//function corresponding to fin, it ends the code
 
 void cmd_fin(char **tokens) {
     exit(1);
 }
-
 
 //this function that has the already tokenized string as input
 //and decides what command functions to execute
@@ -461,19 +875,19 @@ void processInput(char **tokens, char str[]) {
 
             //create a node and store the whole string on the list that stores the hist of the program
             node.next = NULL_COMMAND;
-            //strcpy(node.data.command, str);
+            //strcpy(str, node.data.command);
 
             //if at least one item has correct data, store on list
             if (i > 1)
                 insertItem(node, &list);
 
-                //since it is impossible that some commands have 3 or more arguments...
+            //since it is impossible that some commands have 3 or more arguments...
             if (((i < 2) || (i > 5)) && (i != 9) && (tokens[2] != NULL_COMMAND))
                 printf("Too many arguments\n");
             else
                 (C[i].func)(tokens); //the struct C is consulted to get the current function
 
-                //since the function is already finished, the tokens are not needed, thus their content is erased
+            //since the function is already finished, the tokens are not needed, thus their content is erased
             for (int j = 0; tokens[j] != NULL; ++j)
                 tokens[j] = NULL;
             break;
@@ -483,7 +897,6 @@ void processInput(char **tokens, char str[]) {
     if (C[i].name == NULL)
         printf("Command %s not found\n", tokens[0]);
 }
-
 
 //this function is used to split the string (named previously as trocearCadena())
 //and to count the number of words written
@@ -512,8 +925,7 @@ char splitString(char str[], char **tokens){
     return **tokens;
 }
 
-
-//this function is for the command comando:
+//function corresponding to command comando:
 //repeats command number N from history list
 
 void cmd_comando(char **tokens) {
@@ -549,7 +961,6 @@ void cmd_comando(char **tokens) {
     } else
         printf("No command numbeer has been inserted");
 }
-
 
 int main(){
     char str[MAXLINE]; //variable which stores the input
