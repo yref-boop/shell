@@ -13,12 +13,11 @@
 
 #define MAXLINE 1024
 
-
 void show_dir();
 void cmd_crear(char **);
 void cmd_borrar(char **);
 void print_file(bool **, char *);
-int cmd_borrarrec(char **);
+void cmd_borrarrec(char **);
 void show_dir_content(char *);
 bool list_detect(bool **, int, char **, bool, bool);
 void cmd_listfich(char **);
@@ -54,7 +53,7 @@ struct CMD C[]={
         {"fecha",     cmd_fecha},
         {"infosis",   cmd_infosis},
         {"borrar",    cmd_borrar},
-        {"borrarrec", (void (*)(char **)) cmd_borrarrec},
+        {"borrarrec", cmd_borrarrec},
         {"fin",       cmd_fin},
         {"bye",       cmd_fin},
         {"salir",     cmd_fin},
@@ -134,12 +133,12 @@ void print_file(bool *op[], char *tokens) {
         printf("(%ld)", st.st_ino);
 
         if ((pwd = getpwuid(st.st_uid)) != NULL)
-            printf(" %-8.8s", pwd->pw_name);
+            printf(" %s ", pwd->pw_name);
         else
-            printf(" %-8d", st.st_uid);
+            printf(" %d ", st.st_uid);
 
         if ((grp = getgrgid(st.st_gid)) != NULL)
-            printf(" %-8.8s", grp->gr_name);
+            printf(" %s ", grp->gr_name);
         else
             printf(" %-8d", st.st_gid);
 
@@ -154,33 +153,32 @@ void print_file(bool *op[], char *tokens) {
         printf((st.st_mode & S_IWOTH) ? "w" : "-");
         printf((st.st_mode & S_IXOTH) ? "x" : "-");
 
-        if (*op[4] == true) {
-            printf(" %i", st.st_mode);
-            if (st.st_nlink > 1) {
+        printf("% ld %s ", st.st_size, tokens);
 
-                printf("% ld %s -> ", st.st_size, tokens);
+        if (*op[4] == true){
+            if (st.st_nlink > 1) {
+                printf("-> ");
                 char buff[1024];
                 memset(buff, 0, sizeof(buff));
                 if (readlink(tokens, buff, sizeof(buff) - 1) < 0) {
-                    perror("readlink");
+                    printf("file_print: %s\n", strerror(errno));
+                    return;
                 } else {
                     printf("%s \n", buff);
                 }
-            } //names that don't start with a slash are of current directory
-        } else
-            printf("% ld %s\n", st.st_size, tokens);
+            }
+        } else printf("/n");
     }
 }
 
-int cmd_borrarrec(char **tokens) {
+void cmd_borrarrec(char **tokens) {
 
     char path[50];
     strcpy(path, tokens[1]);
 
     if (tokens[1] == NULL) {
         show_dir();
-        return 0;
-
+        return;
     } else {
 
         DIR *d = opendir(path);
@@ -210,7 +208,7 @@ int cmd_borrarrec(char **tokens) {
                     if (!stat(buf, &statbuf)) {
                         if (S_ISDIR(statbuf.st_mode)) {
                             strcpy(tokens[1], buf);
-                            r2 = cmd_borrarrec(tokens);
+                            cmd_borrarrec(tokens);
                         }
                         else
                             r2 = unlink(buf);
@@ -224,7 +222,8 @@ int cmd_borrarrec(char **tokens) {
         if (!r)
             r = rmdir(path);
 
-        return r;
+        if (r == -1) printf("%s\n", strerror(errno));
+        return;;
     }
 }
 
@@ -322,6 +321,7 @@ void dir(char *directory, bool *op[]) {
     if (!dir) { //if it is not a directory
         print_file(op, directory);
     } else {
+        printf("*******");
         print_file(op, directory);
 
         struct dirent *p;
@@ -425,6 +425,14 @@ void recursive(char *directory, bool *op[], int config) {
     }
 }
 
+
+int is_regular_file(const char *path)
+{
+    struct stat path_stat;
+    stat(path, &path_stat);
+    return S_ISREG(path_stat.st_mode);
+}
+
 void cmd_listdir(char **tokens) {
 
     if (tokens[1] == NULL) { show_dir(); return; }
@@ -440,6 +448,9 @@ void cmd_listdir(char **tokens) {
     for (; list_detect(op, arg, tokens, false, true); ++arg)
         list_detect(op, arg, tokens, true, true);
 
+    //ra, rb, hi, lo, li, ac
+    //0   1   2   3   4   5
+
     if (*op[0] || *op[1]) {
 
         if (*op[0])
@@ -449,9 +460,8 @@ void cmd_listdir(char **tokens) {
 
     } else
         //arg already has the value of the first file name
-        for(; tokens[arg] != NULL; arg++) dir(tokens[arg], op);
+        for(; tokens[arg] != NULL; arg++){dir(tokens[arg], op);}
 }
-
 
 //function corresponding to the command autores
 //autores prints both logins and names of the authors, autores -l only logins and autores -n only names
@@ -493,7 +503,6 @@ void cmd_pid(char **tokens) {
         printf("Command %s %s not found\n", tokens[0], tokens[1]);
 }
 
-
 //function corresponding to the command fecha
 //without arguments it prints date and time, fecha -d date and fecha -h time
 
@@ -515,7 +524,6 @@ void cmd_fecha(char **tokens) {
         printf("Command %s %s not found\n", tokens[0], tokens[1]);
 }
 
-
 //function corresponding to the command infosis
 //it gives info on the current machine
 
@@ -525,7 +533,6 @@ void cmd_infosis(char **tokens) {
     printf("Name of the system: %s\nName of this node: %s\nCurrent release: %s\nCurrent version: %s\nHardware type: %s\n",
            unameData.sysname, unameData.nodename, unameData.release, unameData.version, unameData.machine);
 }
-
 
 //function corresponding to the command ayuda:
 //ayuda displays a list of available commands
@@ -792,17 +799,12 @@ void cmd_ayuda(char **tokens) {
                 printf("%s also prints hidden files\n", tokens[2]);
             }
         }
-
-
-
-
             //if there is a second parameter but does not coincide with any:
         else if (tokens[1]!=NULL){
             printf("The command %s cannot be found\n", tokens[1]);
         }
     }
 }
-
 
 //function corresponding to the command hist:
 //shows(hist/(hist N)) / clears(hist -c) the historic commands executed
@@ -864,6 +866,9 @@ void processInput(char **tokens, char str[]) {
     int i;
     struct tNode node;
 
+    char strc[MAXLINE];
+
+
     //if the input is empty (the \n was previously erased) then do nothing
     if (tokens[0] == NULL_COMMAND) return;
 
@@ -871,13 +876,13 @@ void processInput(char **tokens, char str[]) {
     for (i = 0 ; C[i].name != NULL ; i++){
 
         //if there is a match between the token and one of the commands
-        if (!strcmp(tokens[0], C[i].name)) {
+        if (!strcmp(tokens[0], C[i].name)){
 
             //create a node and store the whole string on the list that stores the hist of the program
-            node.next = NULL_COMMAND;
-            //strcpy(str, node.data.command);
 
-            //if at least one item has correct data, store on list
+            strcpy(node.data.command, str);
+            node.next = NULL;
+
             if (i > 1)
                 insertItem(node, &list);
 
@@ -901,7 +906,7 @@ void processInput(char **tokens, char str[]) {
 //this function is used to split the string (named previously as trocearCadena())
 //and to count the number of words written
 
-char splitString(char str[], char **tokens){
+char splitString(char str[], char **tokens) {
 
     //make a copy of str named strc to avoid possible mutations on the string
     char strc[MAXLINE];
@@ -920,7 +925,6 @@ char splitString(char str[], char **tokens){
         i++;
         ptr = strtok(NULL, delim);
     }
-
     //once finished, all tokens are returned
     return **tokens;
 }
@@ -931,8 +935,10 @@ char splitString(char str[], char **tokens){
 void cmd_comando(char **tokens) {
 
     int N;
+
     //starting at the first position of the historic list
     tCommand_pos i = first(list);
+
     //if it is not null (it exists)
     if (tokens[1] != NULL_COMMAND) {
 
@@ -940,13 +946,11 @@ void cmd_comando(char **tokens) {
         N = (int) strtol(tokens[1], tokens, 0);
 
         if (N > 0) {
-
             //look for the command N in the list (break if NULL command reached)
             for (int j = 1; j < N; ++j) {
                 if (i == NULL_COMMAND) break;
                 i = next(i, list);
             }
-
             //if found, get the info from the corresponding node, and execute splitString and processInput with retrieved data
             if ((tokens[0] != NULL_COMMAND) && (i != NULL_COMMAND)) {
                 tokens[1] = NULL_COMMAND;
@@ -959,10 +963,10 @@ void cmd_comando(char **tokens) {
         } else
             printf("Command not found\n");
     } else
-        printf("No command numbeer has been inserted");
+        printf("No command number has been inserted");
 }
 
-int main(){
+int main() {
     char str[MAXLINE]; //variable which stores the input
     char **tokens [MAXLINE]; //pointer to pointer of chars: array of arrays that will contain each separated command
     createEmptyList(&list);  //list needed for command hist
@@ -970,10 +974,10 @@ int main(){
     while(1) {
         printf("*) ");
         fgets(str, MAXLINE, stdin); //store input in str
-        if (strcmp(str,"\n")) {     //until new line
+        if (strcmp(str,"\n") != 0) {     //until new line
             str[strcspn(str, "\n")] = 0;//eliminate the new line char from string to ease its management
-            splitString(str, tokens);   //divides the string into each part and stores on tokens
-            processInput(tokens, str);  //processes the tokens
+            splitString(str, (char **) tokens);   //divides the string into each part and stores on tokens
+            processInput((char **) tokens, str);  //processes the tokens
         }
         memset(str, '0', MAXLINE);   //erase all contents on str for next iteration
     }

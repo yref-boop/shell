@@ -7,10 +7,8 @@
 #define COMMAND_LENGTH_LIMIT 1024
 #define NULL_COMMAND NULL
 
-typedef char com[COMMAND_LENGTH_LIMIT];
-
 typedef struct tCommand{
-    com command;
+    char command[COMMAND_LENGTH_LIMIT];
 } tCommand;
 
 //definition of the nodes:
