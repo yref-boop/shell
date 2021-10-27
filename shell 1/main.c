@@ -18,7 +18,6 @@ void cmd_crear(char **);
 void cmd_borrar(char **);
 void print_file(bool **, char *);
 void cmd_borrarrec(char **);
-void show_dir_content(char *);
 bool list_detect(bool **, int, char **, bool, bool);
 void cmd_listfich(char **);
 void dir(char *, bool **);
@@ -44,81 +43,95 @@ struct CMD C[]={
         {"comando",   cmd_comando},
         {"hist",      cmd_hist},
         {"ayuda",     cmd_ayuda},
-        {"crear",     cmd_crear},
         {"listfich",  cmd_listfich},
         {"listdir",   cmd_listdir},
+        {"borrar",    cmd_borrar},
+        {"borrarrec", cmd_borrarrec},
+        {"crear",     cmd_crear},
         {"carpeta",   cmd_carpeta},
         {"autores",   cmd_autores},
         {"pid",       cmd_pid},
         {"fecha",     cmd_fecha},
         {"infosis",   cmd_infosis},
-        {"borrar",    cmd_borrar},
-        {"borrarrec", cmd_borrarrec},
         {"fin",       cmd_fin},
         {"bye",       cmd_fin},
         {"salir",     cmd_fin},
-        {NULL, NULL}
+        {NULL,  NULL}
 };
+
+//auxiliary function
+//show_dir prints the current directory
 
 void show_dir() {
 
     char dir[MAXLINE];
     char *a = getcwd(dir, MAXLINE);
 
-    if (a) printf("%s\n", a);
-    else perror("error");
+    if (a) printf("%s\n", a); //print the directory
+    else printf("%s", strerror(errno)); //error
 }
+
+//function corresponding to the command crear
+//crear creates a file/folder in the current directory
 
 void cmd_crear(char **tokens) {
 
-    if (tokens[1] == NULL) { show_dir(); return; }
+    if (tokens[1] == NULL) { show_dir(); return; } //no argument prints the current directory
 
-    if (strcmp(tokens[1], "-f") == 0) {
-        if(fopen(tokens[2], "w") == NULL)
-            printf("Error while trying to create ''\n%m\n");
-    } else {
-        if(mkdir(tokens[1], 0777) && (errno != EEXIST))
-            printf("Error while trying to create ''\n%m\n");
+    if (strcmp(tokens[1], "-f") == 0) { //create a file
+        if (fopen(tokens[2], "w") == NULL)
+            printf("Error while trying to create %s\n%m\n", tokens[2]);
+    } else { //create a folder
+        if (mkdir(tokens[1], 0777))
+            printf("Error while trying to create %s\n%m\n", tokens[1]);
     }
 }
 
+//function corresponding to the command borrar
+//borrar deletes the files/*empty* folders with the given names in the current directory
+
 void cmd_borrar(char **tokens) {
 
-    if (tokens[1] == NULL) {
-        show_dir();
-        return;
-    }
+    if (tokens[1] == NULL) { show_dir(); return; } //no argument prints the current directory
 
     int token_point = 1;
 
-    while (tokens[token_point] != NULL){
-        if(remove(tokens[token_point])==0)
-            printf("File deleted successfully \n");
+    while (tokens[token_point] != NULL) { //iterating through all the arguments
+
+        if (remove(tokens[token_point]) == 0) //delete success
+            printf("%s was deleted successfully\n", tokens[token_point]);
         else
-            printf("File not deleted \n");
+            printf("%s couldn't be deleted\n", tokens[token_point]); //error
+
         token_point++;
     }
 }
 
+//auxiliary function
+//prints the name and all the attributes of the file (or folder)
+
 void print_file(bool *op[], char *tokens) {
 
-    //long int size_file = aux_file_size(tokens[arg]);
-    struct stat st;
+    //structs needed for the info of the file/directory:
+    struct stat st = {};
     struct passwd *pwd;
     struct group *grp;
 
-    if (stat(tokens, &st) != 0) {
+    //in case that lstat returns 0, the info was correctly obtained, else, output error and return
+    if (lstat(tokens, &st) != 0) {
         printf("Unable to get file properties.\n");
         printf("Please check whether '%s' file exists.\n", tokens);
         return;
     }
 
+    //if -long is not specified
     if (*op[3] == false) {
         //print size and name
         printf("%ld %s\n", st.st_size, tokens);
     } else {
         //print modification_date number_of_links (inode_number) owner group mode size name->file_links_to
 
+        //if -acc was specified: print last access time instead of modification time
         if (*op[5] == true) {
             char buffer[80];
             strftime(buffer, 80, "%Y/%m/%d-%H:%M ", localtime(&st.st_atime));
@@ -129,19 +142,23 @@ void print_file(bool *op[], char *tokens) {
             printf("%s", buffer);
         }
 
+        //print number of links and inode number
         printf("%ld ", st.st_nlink);
         printf("(%ld)", st.st_ino);
 
+        //gets an user ID, prints the user if found or the numeric value of the error if it was not
         if ((pwd = getpwuid(st.st_uid)) != NULL)
             printf(" %s ", pwd->pw_name);
         else
             printf(" %d ", st.st_uid);
 
+        //gets the group ID, prints the group if found or the numeric value of the error if it was not
         if ((grp = getgrgid(st.st_gid)) != NULL)
             printf(" %s ", grp->gr_name);
         else
-            printf(" %-8d", st.st_gid);
+            printf(" %d", st.st_gid);
 
+        //this block of code prints the mode and the permissions of the current file/directory
         printf((S_ISDIR(st.st_mode)) ? "d" : "-");
         printf((st.st_mode & S_IRUSR) ? "r" : "-");
         printf((st.st_mode & S_IWUSR) ? "w" : "-");
@@ -153,99 +170,91 @@ void print_file(bool *op[], char *tokens) {
         printf((st.st_mode & S_IWOTH) ? "w" : "-");
         printf((st.st_mode & S_IXOTH) ? "x" : "-");
 
+        //if the lstat function returns error value, print its strerror
+        if (lstat(tokens, &st) == -1)
+            printf("%s", strerror(errno));
+
+        //print size and name
         printf("% ld %s ", st.st_size, tokens);
 
-        if (*op[4] == true){
-            if (st.st_nlink > 1) {
-                printf("-> ");
-                char buff[1024];
-                memset(buff, 0, sizeof(buff));
-                if (readlink(tokens, buff, sizeof(buff) - 1) < 0) {
-                    printf("file_print: %s\n", strerror(errno));
-                    return;
-                } else {
-                    printf("%s \n", buff);
-                }
+        //given the option -link and if the current file/directory is a link
+        if (*op[4] && S_ISLNK(st.st_mode)) {
+            printf("-> ");
+
+            //create an array and initialize it to zero
+            char buff[1024];
+            memset(buff, 0, sizeof(buff));
+
+            //the if condition checks if readlink gets a correct link when trying to place
+            //the contents of tokens inside buff (with 1 less space in size)
+            //if it cannot(returns -1), print strerror, else print the link
+
+            if (readlink(tokens, buff, sizeof(buff) - 1) == -1) {
+                printf("file_print: %s\n", strerror(errno));
+                return;
+            } else {
+                printf("%s \n", buff);
             }
-        } else printf("/n");
+            //if it is not a link, function already finished, just print \n
+        } else printf("\n");
     }
 }
 
+//function corresponding to the command borrar
+//borrar deletes the files/*empty* folders with the given names in the current directory
+
 void cmd_borrarrec(char **tokens) {
 
-    char path[50];
+    char path[MAXLINE];
     strcpy(path, tokens[1]);
 
-    if (tokens[1] == NULL) {
-        show_dir();
-        return;
-    } else {
+    if (tokens[1] == NULL) { show_dir(); return; } //no argument prints the current directory
+    else {
 
         DIR *d = opendir(path);
         size_t path_len = strlen(path);
-        int r = -1;
+        int r = -1; //to check for errors
 
         if (d) {
             struct dirent *p;
-
             r = 0;
+
             while (!r && (p=readdir(d))) {
+
                 int r2 = -1;
                 char *buf;
                 size_t len;
 
-                /* Skip the names "." and ".." as we don't want to recurse on them. */
-                if (!strcmp(p->d_name, ".") || !strcmp(p->d_name, ".."))
-                    continue;
+                //Ignores "." and ".." directories
+                if (!strcmp(p->d_name, ".") || !strcmp(p->d_name, "..")) continue;
 
                 len = path_len + strlen(p->d_name) + 2;
                 buf = malloc(len);
 
                 if (buf) {
-                    struct stat statbuf;
-
+                    struct stat statbuf; //stores info of a file/folder
                     snprintf(buf, len, "%s/%s", path, p->d_name);
-                    if (!stat(buf, &statbuf)) {
-                        if (S_ISDIR(statbuf.st_mode)) {
+
+                    if (!lstat(buf, &statbuf)) {
+                        if (S_ISDIR(statbuf.st_mode)) { //when checking a directory
                             strcpy(tokens[1], buf);
-                            cmd_borrarrec(tokens);
+                            free((char **) buf);
+                            cmd_borrarrec(tokens); //recurse
+                            continue;
                         }
                         else
-                            r2 = unlink(buf);
+                            r2 = unlink(buf); //deletes the file
                     }
                     free((char **) buf);
-                }
-                r = r2;
+                } else
+                    r = r2;
             }
-            closedir(d);
+            closedir(d); //closes the directory
         }
-        if (!r)
-            r = rmdir(path);
+        if (!r) r = rmdir(path); //removes the empty folder
 
-        if (r == -1) printf("%s\n", strerror(errno));
-        return;;
+        if (r == -1) printf("%s\n", strerror(errno)); //error
     }
-}
-
-void show_dir_content(char *path) {
-
-    DIR * d = opendir(path); // open the path
-    if(d==NULL) return; // if was not able, return
-    struct dirent * dir; // for the directory entries
-    while ((dir = readdir(d)) != NULL) // if we were able to read something from the directory
-    {
-        if(dir-> d_type != DT_DIR) // if the type is not directory
-            printf("%s\n", dir->d_name);
-        else
-        if(dir -> d_type == DT_DIR && strcmp(dir->d_name,".")!=0 && strcmp(dir->d_name,"..")!=0 ) // if it is a directory
-        {
-            printf("%s\n", dir->d_name);
-            char d_path[255]; // here I am using sprintf which is safer than strcat
-            sprintf(d_path, "%s/%s", path, dir->d_name);
-            show_dir_content(d_path); // recall with the new path
-        }
-    }
-    closedir(d); // finally, close the directory
 }
 
 /*
@@ -260,12 +269,18 @@ void show_dir_content(char *path) {
  *  -acc last access time will be used instead of last modification time
  */
 
+
+//auxiliary function
+//list_detect checks/modifies the op[] array when executing listfich and listdir
+
 bool list_detect(bool *op[], int arg, char **tokens, bool change, bool isListDir) {
 
     bool found = false;
 
     for (int i = 1; i < 7; ++i) {
         switch (i) {
+            //if 'change' is true, modify op[] accordingly
+            //if 'change' is false, check if the current tokens[arg] is a file or a function option
             case 1: if ((!strcmp(tokens[arg], "-reca")) && isListDir) {if (change) *op[0] = (bool **) true; else found = true;} break;
             case 2: if ((!strcmp(tokens[arg], "-recb")) && isListDir) {if (change) *op[1] = (bool **) true; else found = true;} break;
             case 3: if ((!strcmp(tokens[arg], "-hid")) && isListDir) {if (change) *op[2] = (bool **) true; else found = true;} break;
@@ -276,64 +291,70 @@ bool list_detect(bool *op[], int arg, char **tokens, bool change, bool isListDir
         }
     }
 
+    //if 'change' is false, return true if tokens[arg] is a valid option and false if it isn't
+    //if 'change' is true, always return true by default
     if (!change) { if (!found) return false; else return true; }
     else
         return true;
 }
 
+//function corresponding to the command listfich
+//listfich prints all the files/folders of a directory
+
 void cmd_listfich(char **tokens) {
 
-    if (tokens[1] == NULL) { show_dir(); return; }
+    if (tokens[1] == NULL) { show_dir(); return; } //no argument prints the current directory
 
-    //ra, rb, hi, lo, li, ac
-    //0   1   2   3   4   5
+    //       -reca  -recb  -hidden  -lo  -li  -ac
+    //op[i]      0      1        2    3    4    5
 
     bool *op[6];
 
-    for (int i = 0; i < 6; ++i) {
+    for (int i = 0; i < 6; ++i) { //set every value of the array to false by default
         op[i] = malloc(sizeof(bool));
         *op[i] = false;
     }
 
     int arg = 1;
 
-    for (; list_detect(op, arg, tokens, false, false); ++arg)
-        list_detect(op, arg, tokens, true, false);
+    for (; list_detect(op, arg, tokens, false, false); ++arg) //iterate until there is no -parameter
+        list_detect(op, arg, tokens, true, false); //set the appropriate parameter(s) to true
 
-    for(; tokens[arg] != NULL; arg++) { //arg already has the value of the first file name
-        print_file(op, tokens[arg]);
-    }
+    //arg already has the value of the first file/folder name
+    for(; tokens[arg] != NULL; arg++) print_file(op, tokens[arg]); //print the appropriate file/folder
 }
+
+//auxiliary function
+//processes the non-recursive listdir
 
 void dir(char *directory, bool *op[]) {
 
-    struct stat st;
+    struct stat st; //stores info about the current file
 
-    if (stat(directory, &st) != 0) {
+    if (stat(directory, &st) != 0) { //gets the info and checks for errors
         printf("Unable to get file properties.\n");
         printf("Please check whether '%s' file exists.\n", directory);
         return;
     }
 
-    DIR* dir = opendir(directory);
+    DIR* dir = opendir(directory); //open the directory
     size_t path_len = strlen(directory);
 
     if (!dir) { //if it is not a directory
-        print_file(op, directory);
+        print_file(op, directory); //print the file
     } else {
-        printf("*******");
+        printf("*******"); //header
         print_file(op, directory);
 
-        struct dirent *p;
+        struct dirent *p; //stores the current file/folder
 
-        while ((p = readdir(dir))) {
+        while ((p = readdir(dir))) { //while there are more files/folders to check
             char *buf;
             size_t len;
 
             if (!strcmp(p->d_name, ".") || !strcmp(p->d_name, "..")) {
-                if (*op[2])
-                    print_file(op, p->d_name);
-                continue;
+                if (*op[2]) print_file(op, p->d_name); //ignore directories '.' & '..' except when -hid is activated
+                continue; //restart the loop
             }
 
             len = path_len + strlen(p->d_name) + 2;
@@ -343,124 +364,133 @@ void dir(char *directory, bool *op[]) {
                 struct stat st2;
 
                 snprintf(buf, len, "%s/%s", directory, p->d_name);
-                if (!stat(buf, &st2)) {
-                    print_file(op, buf);
-                }
+                if (!stat(buf, &st2)) print_file(op, buf); //print the name of the file/folder
+
                 free((char**) buf);
-            }
+            } else free((char**) buf); /////////////////////////////////////
         }
-        closedir(dir);
+        closedir(dir); //close the directory
     }
 }
 
+//auxiliary function
+//recursive processes the '-reca' and '-recb' parameters in listdir
+
 void recursive(char *directory, bool *op[], int config) {
-    char path[50];
-    int it = 1;
+
+    char path[MAXLINE] = "";
+    int it = 1; //iteration number: (1->prints all files and folders; 2->goes through the paths inside every folder
     strcpy(path, directory);
-    DIR *d = opendir(path);
+    DIR *d = opendir(path); //directory that is worked on
     size_t path_len = strlen(path);
 
-    if (config == 0) {
-        printf("*******");
-        printf("%s\n", path);
-    }
+    if (d) { //if the path is accessible
 
-    if (d) {
+        if (config == 0) { //header when -reca
+            printf("*******");
+            printf("%s\n", path);
+        }
+
         struct dirent *p;
-        p = readdir(d);
+        p = readdir(d); //first file/folder to work on
 
-        while (it < 3) {
+        while (it < 3) { //while both iterations are finished
 
-            if (p == NULL) {
-
-                if (it*config == 1) {
+            if (p == NULL) { //when there is no file/folder
+                if (it*config == 1) { //head when -recb
                     printf("*******");
                     printf("%s\n", path);
                 }
                 it ++;
+                closedir(d);
                 d = opendir(path);
                 path_len = strlen(path);
                 p = readdir(d);
-                continue;
+                continue; //restarts the loop passing to the next iteration with the new path
             }
 
             char *buf;
             size_t len;
 
             if (!strcmp(p->d_name, ".") || !strcmp(p->d_name, "..")) {
-                if ((*op[2]) && (it == 1)) print_file(op, p->d_name);
+                if ((*op[2]) && (it == 1)) print_file(op, p->d_name); //ignore directories '.' & '..' except when -hid is activated
                 p = readdir(d);
-                continue;
+                continue; //restart the loop with the new file/folder
             }
 
             len = path_len + strlen(p->d_name) + 2;
-            buf = malloc(len);
+            buf = malloc(len); //buffer to store the current file
 
             if (buf) {
                 struct stat statbuf;
                 snprintf(buf, len, "%s/%s", path, p->d_name);
 
-                if (!stat(buf, &statbuf)) {
-                    if (S_ISDIR(statbuf.st_mode)) {
+                if (!lstat(buf, &statbuf)) { //info about the current file
+                    if (S_ISDIR(statbuf.st_mode)) { //when directory
+                        //prints the current folder (-reca->does it in iteration 1;-recb->does it in iteration 2)
                         if (it == 1 + config) print_file(op, buf);
-                        if (it == 2 - config) recursive(buf, op, config);
+                        //recursions the current folder (-recb->does it in iteration 1;-reca->does it in iteration 2)
+                        if (it == 2 - config) { recursive(buf, op, config); }
                     }
                     else
+                        //prints the current file (-reca->does it in iteration 1;-recb->does it in iteration 2)
                     if (it == 1 + config) print_file(op, buf);
                 }
                 free((char **) buf);
             }
-            if (!(p = readdir(d))) {
-                if (it*config == 1) {
+            if (!(p = readdir(d))) { //if next file/folder doesn't exist
+                if (it*config == 1) { //header when -recb
                     printf("*******");
                     printf("%s\n", path);
                 }
                 it ++;
+                closedir(d);
                 d = opendir(path);
                 path_len = strlen(path);
-                p = readdir(d);
+                p = readdir(d); //restarts the loop passing to the next iteration with the new path
             }
         }
-        closedir(d);
-    }
+        closedir(d); //closes the directory
+    } else printf("%s\n", strerror(errno)); //error
 }
 
-
-int is_regular_file(const char *path)
-{
-    struct stat path_stat;
-    stat(path, &path_stat);
-    return S_ISREG(path_stat.st_mode);
-}
+//function corresponding to the command autores
+//autores prints both logins and names of the authors, autores -l only logins and autores -n only names
 
 void cmd_listdir(char **tokens) {
 
-    if (tokens[1] == NULL) { show_dir(); return; }
+    if (tokens[1] == NULL) { show_dir(); return; } //no argument prints the current directory
 
     int arg = 1;
+
+    //       -reca  -recb  -hidden  -lo  -li  -ac
+    //op[i]      0      1        2    3    4    5
+
     bool *op[6];
 
-    for (int i = 0; i < 6; ++i) {
+    for (int i = 0; i < 6; ++i) { //set every value of the array to false by default
         op[i] = malloc(sizeof(bool));
         *op[i] = false;
     }
 
-    for (; list_detect(op, arg, tokens, false, true); ++arg)
-        list_detect(op, arg, tokens, true, true);
+    for (; list_detect(op, arg, tokens, false, true); ++arg) //iterate until there is no -parameter
+        list_detect(op, arg, tokens, true, true); //set the appropriate parameter(s) to true
 
-    //ra, rb, hi, lo, li, ac
-    //0   1   2   3   4   5
+    if (*op[0] || *op[1]) { //if listdir is recursive
 
-    if (*op[0] || *op[1]) {
-
-        if (*op[0])
+        if (*op[0]) //recursive (A)
             for(; tokens[arg] != NULL; arg++) recursive(tokens[arg], op, 0);
-        else
+        else        //recursive (B)
             for(; tokens[arg] != NULL; arg++) recursive(tokens[arg], op, 1);
 
-    } else
+    } else {
         //arg already has the value of the first file name
-        for(; tokens[arg] != NULL; arg++){dir(tokens[arg], op);}
+        for(; tokens[arg] != NULL; arg++) { dir(tokens[arg], op); }} //execute the default dir function with all the directories
+
+    for (int i = 0; i < 6; ++i) { //set every value of the array to false by default
+        free(op[i]);
+        //op[i] = NULL;
+    }
 }
 
 //function corresponding to the command autores
@@ -478,13 +508,16 @@ void cmd_autores(char **tokens) {
 
 }
 
+//function corresponding to the command carpeta
+//carpeta creates a folder with a given name in the current directory
+
 void cmd_carpeta(char **tokens) {
 
     if (tokens[1] == NULL)
         show_dir();
     else {
         if (chdir(tokens[1]) == -1)
-            perror("Cannot change directory: Permission denied\n");
+            printf("%s\n", strerror(errno));
         else
             show_dir();
     }
@@ -516,11 +549,11 @@ void cmd_fecha(char **tokens) {
         printf("System Time is: %02d:%02d:%02d\n", tm.tm_hour, tm.tm_min, tm.tm_sec);
     }
         //if there is a second parameter
-    else if (!strcmp(tokens[1], "-d"))
+    else if (!strcmp(tokens[1], "-d")) //date
         printf("System Date is: %02d/%02d/%04d\n", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900);
-    else if (!strcmp(tokens[1], "-h"))
+    else if (!strcmp(tokens[1], "-h")) //time
         printf("System Time is: %02d:%02d:%02d\n", tm.tm_hour, tm.tm_min, tm.tm_sec);
-    else
+    else //wrong argument
         printf("Command %s %s not found\n", tokens[0], tokens[1]);
 }
 
@@ -528,8 +561,10 @@ void cmd_fecha(char **tokens) {
 //it gives info on the current machine
 
 void cmd_infosis(char **tokens) {
+
     struct utsname unameData;
     uname(&unameData);
+    //prints all the information
     printf("Name of the system: %s\nName of this node: %s\nCurrent release: %s\nCurrent version: %s\nHardware type: %s\n",
            unameData.sysname, unameData.nodename, unameData.release, unameData.version, unameData.machine);
 }
@@ -852,7 +887,8 @@ void cmd_hist(char **tokens) {
         printf("Command %s %s not found\n", tokens[0], tokens[1]);
 }
 
-//function corresponding to fin, it ends the code
+//function corresponding to fin
+//it ends the code
 
 void cmd_fin(char **tokens) {
     exit(1);
@@ -865,29 +901,26 @@ void processInput(char **tokens, char str[]) {
 
     int i;
     struct tNode node;
-
     char strc[MAXLINE];
-
+    char *strup = strdup(str); //storing a malloced version of str
 
     //if the input is empty (the \n was previously erased) then do nothing
     if (tokens[0] == NULL_COMMAND) return;
 
     //for each position on the struct C that contains the commands,
-    for (i = 0 ; C[i].name != NULL ; i++){
+    for (i = 0 ; C[i].name != NULL ; i++) {
 
         //if there is a match between the token and one of the commands
-        if (!strcmp(tokens[0], C[i].name)){
+        if (!strcmp(tokens[0], C[i].name)) {
 
-            //create a node and store the whole string on the list that stores the hist of the program
-
-            strcpy(node.data.command, str);
-            node.next = NULL;
+            //create a node and store the whole string on 'command', in the list that stores the history of the program
+            strcpy(node.data.command, strup);
 
             if (i > 1)
                 insertItem(node, &list);
 
             //since it is impossible that some commands have 3 or more arguments...
-            if (((i < 2) || (i > 5)) && (i != 9) && (tokens[2] != NULL_COMMAND))
+            if (((i < 2) || (i > 7)) && (tokens[2] != NULL_COMMAND))
                 printf("Too many arguments\n");
             else
                 (C[i].func)(tokens); //the struct C is consulted to get the current function
@@ -898,6 +931,9 @@ void processInput(char **tokens, char str[]) {
             break;
         }
     }
+
+    free(strup);
+
     //if the struct C has been completely checked without any being the same as the input, then the input is not an implemented command
     if (C[i].name == NULL)
         printf("Command %s not found\n", tokens[0]);
@@ -963,7 +999,7 @@ void cmd_comando(char **tokens) {
         } else
             printf("Command not found\n");
     } else
-        printf("No command number has been inserted");
+        printf("No command number has been inserted\n");
 }
 
 int main() {
@@ -981,5 +1017,7 @@ int main() {
         }
         memset(str, '0', MAXLINE);   //erase all contents on str for next iteration
     }
+    free(**tokens);
+    free(list);
     return 0;
 }
