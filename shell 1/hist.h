@@ -20,6 +20,7 @@ struct tNode { //nodes are structures composed of data and a pointer to the next
 typedef tCommand_pos tHist;
 
 // headers of functions:
+tCommand_pos last(tHist list); //returns the last element of the list
 void createEmptyList (tHist* list); //creates a list that doesn't have items
 tCommand_pos first(tHist list); //returns the position of the first element of a non-empty list
 tCommand_pos next (tCommand_pos pos, tHist list); //returns the position of the following element of an item in a given position of a list
@@ -29,4 +30,3 @@ void deleteAtPosition(tCommand_pos pos, tHist *list); //deletes item from the li
 tCommand getItem(tCommand_pos pos, tHist list); //returns the contents of an element at a given position
 
 #endif //SHELL_HIST_H
-

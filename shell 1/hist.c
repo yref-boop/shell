@@ -28,6 +28,21 @@ tCommand_pos previous (tCommand_pos pos, tHist list){
     }
 }
 
+tCommand_pos last(tHist list){
+
+    //DESCRIPTION: looks for the position of the last element of the list
+    //INPUTS: the list in which we search for the last user
+    //OUTPUT: the position of the user that is at last position (tUserPos->next =NULL_USER)
+    //PRECONDITIONS: the list must be previously initialised and it cannot be empty
+    //POSCONDITIONS:
+
+    tCommand_pos pos; //we create a variable position
+
+    for (pos=list; pos->next != NULL_COMMAND ; pos = pos->next); //we do a sequential search, from one, one towards
+    // the end if next isn't NULL_USER
+    return pos; //this way, the item whose next is null is obtained (the one that doesn't have an item after it)
+}
+
 
 bool insertItem(struct tNode node, tHist *list){
 
@@ -44,12 +59,12 @@ bool insertItem(struct tNode node, tHist *list){
         if (*list == NULL_COMMAND) //list is empty
             *list = n_pos; //n_pos is the first position
         else {
-                p_pos = *list; //set the following position at the beginning of the list
-                while (p_pos->next != NULL_COMMAND)
-                    p_pos = p_pos->next;
-                n_pos->next = p_pos->next; //set that the next of n_pos is the next of prev_pos
-                p_pos->next = n_pos; //set n_pos to be the position following prev_pos
-                //thus prev_pos is the position previous to n_pos
+            p_pos = *list; //set the following position at the beginning of the list
+            while (p_pos->next != NULL_COMMAND)
+                p_pos = p_pos->next;
+            n_pos->next = p_pos->next; //set that the next of n_pos is the next of prev_pos
+            p_pos->next = n_pos; //set n_pos to be the position following prev_pos
+            //thus prev_pos is the position previous to n_pos
         }
         return true; //indeed, it is possible to insert the item
     }
