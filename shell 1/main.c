@@ -16,17 +16,14 @@
 #include <sys/wait.h>
 
 #define MAXLINE 1024
-tHist list;
+tList list;
+tList mem;
+int forMemoria;
 
-void show_dir();
 void cmd_crear(char **);
 void cmd_borrar(char **);
-void print_file(bool **, char *);
 void cmd_borrarrec(char **);
-bool list_detect(bool **, int, char **, bool, bool);
 void cmd_listfich(char **);
-void dir(char *, bool **);
-void recursive(char *, bool **, int);
 void cmd_listdir(char **);
 void cmd_autores(char **);
 void cmd_carpeta(char **);
@@ -44,6 +41,8 @@ void cmd_dealloc(char **);
 void cmd_memoria(char **);
 void cmd_volcarmem(char **);
 void cmd_llenarmem(char **);
+void cmd_read(char **);
+void cmd_write(char **);
 void cmd_recursiva(char **);
 
 
@@ -74,6 +73,8 @@ struct CMD C[]={
         {"volcarmem", cmd_volcarmem},
         {"llenarmem", cmd_llenarmem},
         {"recursiva", cmd_recursiva},
+        {"read", cmd_read},
+        {"write", cmd_write},
         {"fin",       cmd_fin},
         {"bye",       cmd_fin},
         {"salir",     cmd_fin},
@@ -92,7 +93,7 @@ void splitString (char *str, char *tokens[]) {
     char delim[] = " \t\a\r\n";
 
     //store all chars that are before any delimiter or end of string in separated tokens (arrays)
-    while(((found = strsep(&str, delim))!= NULL)){
+    while(((found = strsep(&str, delim)) != NULL)){
         if((strcmp(found, "") != 0)) {
             tokens[i] = found;
             i++;
@@ -100,21 +101,21 @@ void splitString (char *str, char *tokens[]) {
     }
 }
 
-void storeOnList (char * tokens[]) {
+void storeOnList (char *tokens[]) {
     struct tNode node;
     char store[MAXLINE];
     strcpy(store, "");
     int i = 0;
 
-    //create an string (store) with the current tokens
-    while(tokens[i]!=NULL){
+    //create a string (store) with the current tokens
+    while(tokens[i] != NULL) {
         strcat(store, tokens[i]);
         strcat(store, " ");
         i++;
     }
 
     //insert the new string on the list
-    strcpy(node.data.command, store);
+    strcpy(node.data.text, store);
     insertItem(node, &list);
 
     //the values on the string are cleared
@@ -126,11 +127,112 @@ void processInput(char *tokens[]) {
     if (tokens[0]== NULL) return;
 
     //check for all commands on C struct if there is a match
-    for(int i = 0 ;C[i].name != NULL; i++){
+    for(int i = 0; C[i].name != NULL; i++){
         if(strcmp(tokens[0], C[i].name) == 0) {
             storeOnList(tokens);
             (C[i].func)(tokens);
         }
+    }
+}
+
+void saveInList(char function[], void * address, int size, char file[], int key) {
+    struct tNode node;
+    //insert the new string on the list
+    strcpy(node.data.text, function);
+    node.mem.size = size;
+    node.mem.address = address;
+    strcpy(node.mem.file.text, file);
+    node.mem.key = key;
+    insertItem(node, &mem);
+}
+
+void readInList(struct tNode node, char function[], char size[]) {
+    char Size[MAXLINE];
+    sprintf(Size, "%d", node.mem.size);
+    char nodeFunction[] = {};
+    strcpy(nodeFunction, node.data.text);
+    strtok(nodeFunction, " ");
+
+    if ((!strcmp(nodeFunction, function) || !strcmp("all", function)) && ((!strcmp(size, Size)) || !strcmp("all", size))) {
+        printf("%p: size:%d. %s ", node.mem.address, node.mem.size, nodeFunction);
+        if (strlen(node.mem.file.text) > 0)
+            printf("%s (fd:%d) ", node.mem.file.text, node.mem.key);
+        else if (node.mem.key > -1)
+            printf("(key %d) ", node.mem.key);
+        printf("fecha\n");
+    }
+}
+
+void deleteMalloc(char size[]) {
+    tPos p = first(mem);
+    while(p != NULL) {
+        if (getItem(p, mem).mem.size == atoi(size)) {
+            free(getItem(p,mem).mem.address);
+            deleteAtPosition(p, &mem);
+            return;
+        }
+        p = next(p, mem);
+    }
+}
+
+void deleteMmap(char name[]) {
+    tPos p = first(mem);
+    while(p != NULL) {
+        if (!strcmp(getItem(p, mem).mem.file.text, name)) {
+            close(*name);
+            deleteAtPosition(p, &mem);
+            return;
+        }
+        p = next(p, mem);
+    }
+}
+
+void deleteAddress(char *address) {
+
+    tPos p = first(mem);
+
+    while(p != NULL) {
+
+        char ad[MAXLINE];
+        sprintf(ad, "%p", getItem(p, mem).mem.address);
+
+        if (!strcmp(address, ad)) {
+            deleteAtPosition(p, &mem);
+            return;
+        }
+        p = next(p, mem);
+    }
+}
+
+void printMemoryList() {
+    tPos p = first(mem);
+    while(p != NULL) {
+        readInList(getItem(p, mem), "all", "all");
+        p = next(p, mem);
+    }
+}
+
+void printMallocList() {
+    tPos p = first(mem);
+    while(p != NULL) {
+        readInList(getItem(p, mem), "malloc", "all");
+        p = next(p, mem);
+    }
+}
+
+void printMmapList() {
+    tPos p = first(mem);
+    while(p != NULL) {
+        readInList(getItem(p, mem), "mmap", "all");
+        p = next(p, mem);
+    }
+}
+
+void printSharedList() {
+    tPos p = first(mem);
+    while(p != NULL) {
+        readInList(getItem(p, mem), "shared", "all");
+        p = next(p, mem);
     }
 }
 
@@ -146,7 +248,7 @@ void * ObtenerMemoriaShmget (key_t clave, size_t tam) {
     ///esta funcion vale para shared y shared -create
 
     //if (tam = 0) it tries to access to an already created one
-    if (clave == IPC_PRIVATE) {errno = EINVAL; return NULL;} //not useful
+    if (clave == IPC_PRIVATE) { errno = EINVAL; return NULL; } //not useful
 
     if ((id = shmget(clave, tam, flags)) == -1) return (NULL);
 
@@ -162,24 +264,6 @@ void * ObtenerMemoriaShmget (key_t clave, size_t tam) {
     return (p); //save in Shared Memory Addresses (p, s.shm_segsz, clave.....)
 }
 
-void SharedCreate (char *arg[]) { //arg[2] is the key and arg[3] is the size
-    key_t k;
-    size_t tam = 0;
-    void *p;
-    if (arg[2] == NULL || arg[3] == NULL) return;
-    //list Shared Memory's addresses
-
-    k = (key_t) atoi(arg[2]);
-
-    if (arg[3] != NULL)
-        tam=(size_t) atoll(arg[3]);
-
-    if ((p=ObtenerMemoriaShmget(k, tam)) == NULL)
-        perror ("Imposible obtener memoria shmget");
-    else
-        printf ("Memoria de shmget de clave %d asignada en %p\n", k, p);
-}
-
 void * MmapFichero (char * fichero, int protection) {
     int df, map = MAP_PRIVATE, modo = O_RDONLY;
     struct stat s;
@@ -193,38 +277,56 @@ void * MmapFichero (char * fichero, int protection) {
     if ((p = mmap (NULL, s.st_size, protection, map, df, 0)) == MAP_FAILED)
         return NULL;
 
-    //save in Map Addresses (p, s.shm_segsz, clave.....)
+    saveInList("mmap", p, (int) s.st_size, fichero, df);
+    //save in Map Addresses (p, s.shm_segsz, key...)
     return p;
 }
 
-void Mmap (char *arg[]) { //arg[0] is the file name and arg[1] is the permissions
+void Mmap (char *arg[]) { //arg[1] is the file name and arg[2] is the permissions
     char *perm;
     void *p;
     int protection = 0;
 
-    if (arg[0] == NULL) return; //List Memory Addresses of mmap
-
-    if ((perm = arg[1]) != NULL && strlen(perm) < 4) {
+    if ((perm = arg[2]) != NULL && strlen(perm) < 4) {
         if (strchr(perm,'r') != NULL) protection |= PROT_READ;
         if (strchr(perm,'w') != NULL) protection |= PROT_WRITE;
         if (strchr(perm,'x') != NULL) protection |= PROT_EXEC;
     }
 
-    if ((p = MmapFichero(arg[0], protection)) == NULL)
+    if ((p = MmapFichero(arg[1], protection)) == NULL)
         perror ("Imposible mapear fichero");
     else
-        printf ("fichero %s mapeado en %p\n", arg[0], p);
+        printf ("fichero %s mapeado en %p\n", arg[1], p);
+}
+
+void SharedCreate (char *arg[]) { //arg[2] is the key and arg[3] is the size
+    key_t k;
+    size_t tam = 0;
+    void *p;
+    if (arg[3] == NULL) { printSharedList(); return; }
+    //list Shared Memory's addresses
+
+    k = (key_t) atoi(arg[2]);
+
+    if (arg[3] != NULL)
+        tam = (size_t) atoll(arg[3]);
+
+    if ((p = ObtenerMemoriaShmget(k, tam)) == NULL)
+        printf("Couldn't obtain memory: %s\n", strerror(errno));
+    else {
+        printf("Allocated shared memory (key:%d) at %p\n", k, p);
+        saveInList("shared", p, (int) tam, "", k);
+    }
 }
 
 #define LEERCOMPLETO ((ssize_t) - 1)
-
 ssize_t LeerFichero (char *fich, void *p, ssize_t n) {
     //reads n bytes of the directory fich in p
     ssize_t nleidos, tam = n; //if (n == -1) it reads the complete directory
 
     int df, aux;
     struct stat s;
-    if (stat (fich, &s) == -1 || (df = open(fich, O_RDONLY)) == -1) return ((ssize_t) - 1);
+    if (stat(fich, &s) == -1 || (df = open(fich, O_RDONLY)) == -1) return (ssize_t) - 1;
 
     if (n == LEERCOMPLETO) tam = (ssize_t) s.st_size;
 
@@ -232,29 +334,72 @@ ssize_t LeerFichero (char *fich, void *p, ssize_t n) {
         aux = errno;
         close(df);
         errno = aux;
-        return ((ssize_t) - 1);
+        return (ssize_t) - 1;
     }
 
     close (df);
-    return (nleidos);
+    return nleidos;
 }
 
-void SharedDelkey (char *args[]) { //arg[2] points to a str containing the key
+ssize_t EscribirFichero (char *fich, void *p, ssize_t n, int overwrite) {
+    //reads n bytes of the directory fich in p
+    ssize_t nleidos, tam = n; //if (n == -1) it reads the complete directory
+
+    int fd, aux;
+    struct stat s;
+
+    if ((fd = open(fich, O_WRONLY)) == -1) {
+        if (fopen(fich, "w") == NULL) return (ssize_t) -1;
+        else if ((fd = open(fich, O_WRONLY)) == -1) return (ssize_t) -1;
+    } else if (!overwrite) { printf("File %s already exists\n", fich); return 0;}
+
+    if (stat(fich, &s) == -1) return (ssize_t) - 1;
+
+    if ((nleidos = write(fd, p, tam)) == -1) {
+        aux = errno;
+        close(fd);
+        errno = aux;
+        return (ssize_t) - 1;
+    }
+
+    close (fd);
+    return nleidos;
+}
+
+void SharedDelkey (char *args[]) { //args[2] points to a str containing the key
     key_t clave;
     int id;
     char *key = args[2];
 
     if (key == NULL || (clave = (key_t) strtoul(key, NULL, 10)) == IPC_PRIVATE){
-        printf(" shared -delkey clave_valida\n");
+        printf(" shared -delkey valid_key\n");
         return;
     }
 
     if ((id = shmget(clave, 0, 0666)) == -1) {
-        perror("shmget: imposible obtener memoria compartida");
+        printf("Couldn't get shared memory: %s\n", strerror(errno));
         return;
     }
     if (shmctl(id, IPC_RMID, NULL) == -1)
-        perror("shmctl: imposible eliminar memoria compartida\n");
+        printf("Couldn't delete shared memory: %s\n", strerror(errno));
+    else
+        printf("Key %s removed from the system\n", args[2]);
+}
+
+void SharedFree (char key[]) { //args[2] points to a str containing the key
+
+    tPos p = first(mem);
+    while(p != NULL) {
+        if (getItem(p, mem).mem.key == atoi(key)) {
+            if (shmdt(getItem(p, mem).mem.address) == -1)
+                printf("Couldn't detach shared memory: %s\n", strerror(errno));
+            printf("Shared memory block at %p (key %d) has been deallocated\n",
+                   getItem(p, mem).mem.address, getItem(p, mem).mem.key);
+            deleteAtPosition(p, &mem);
+            return;
+        }
+        p = next(p, mem);
+    }
 }
 
 void dopmap (void) { //no arguments necessary
@@ -263,130 +408,172 @@ void dopmap (void) { //no arguments necessary
     char *argv[3] = {"pmap", elpid, NULL};
     sprintf (elpid, "%d", (int) getpid());
 
-    if ((pid = fork()) == -1) { perror("Imposible crear proceso"); return; }
+    if ((pid = fork()) == -1) { printf("Couldn't create process: %s\n", strerror(errno)); return; }
 
     if (pid == 0) {
         if (execvp(argv[0], argv) == -1)
-            perror("cannot execute pmap");
+            printf("Cannot execute pmap: %s\n", strerror(errno));
         exit(1);
     }
     waitpid (pid, NULL, 0);
 }
 
+void doblocks() {
+    printf("MEMORY ADDRESS LIST:\n");
+    printMemoryList();
+}
+
+void dovars() {
+    printf("GLOBAL VARIABLES:\n");
+    printf("Address of list: %p\n", &list);
+    printf("Address of mem: %p\n", &mem);
+    printf("Address of forMemoria: %p\n", &forMemoria);
+
+    static int a = 7;
+    static char b = 'b';
+    static long int c[] = {20};
+
+    printf("STATIC VARIABLES:\n");
+    printf("Address of a: %p\n", &a);
+    printf("Address of b: %p\n", &b);
+    printf("Address of c: %p\n", &c);
+
+    char d = 75;
+    char e = 'e';
+    double f = 74823;
+
+    printf("LOCAL VARIABLES:\n");
+    printf("Address of d: %p\n", &d);
+    printf("Address of e: %p\n", &e);
+    printf("Address of f: %p\n", &f);
+}
+
+void dofuncs() {
+    printf("FUNCTION ADDRESSES:\n");
+    printf("Address of domap: %p\n", dopmap);
+    printf("Address of doblocks: %p\n", doblocks);
+    printf("Address of dovars: %p\n", dovars);
+    printf("Address of printf: %p\n", printf);
+    printf("Address of malloc: %p\n", malloc);
+    printf("Address of strcmp: %p\n", strcmp);
+}
 
 void cmd_malloc(char **tokens) {
 
-    int n, i, *ptr, sum = 0;
+    void * *ptr;
 
-    if (tokens[1] == NULL_COMMAND) {
-        //show list of malloc
+    if (tokens[1] == NULL_TEXT) {
+        printMallocList();
     } else if (!strcmp(tokens[1], "-free")) {
-        if (tokens[2] != NULL_COMMAND){
-
-            //memory that we have to allocate
-            free(ptr);
-
-        }
+        if (tokens[2] != NULL_TEXT) {
+            deleteMalloc(tokens[2]);
+        } else printMallocList();
     } else {
-        ptr = (int*) malloc(n * sizeof(int));
-
-        if(ptr == NULL) {
-            printf("Error! memory not allocated.");
-            exit(0);
-        }
-        printf("Enter elements: ");
-        for(i = 0; i < n; ++i) {
-            scanf("%d", ptr + i);
-            sum += *(ptr + i);
-        }
-
-        printf("Sum = %d", sum);
+        ptr = (void *) malloc(atoi(tokens[1]) * sizeof(void *));
+        if (ptr == NULL) { printf("Error! memory not allocated.\n"); return; }
+        saveInList("malloc", ptr, atoi(tokens[1]), "", 0);
     }
 }
 
 void cmd_mmap(char **tokens) {
 
-    if (tokens[1] == NULL_COMMAND) {
-        //print list of mmap
-    } else if (!strcmp(tokens[1],"-free")) {
-        //free(ptr);
-    } else if (tokens[2] != NULL_COMMAND) {
-
-        int N = 5;
-        int *ptr = mmap ( NULL, N*sizeof(int), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0 );
-
-        int err = munmap(ptr, 10*sizeof(int));
-        if(err != 0){
-            printf("UnMapping Failed\n");
-            return;
-            //-free
-        } else {
-            //print list of mmap
-        }
+    if (tokens[1] == NULL_TEXT) {
+        printMmapList();
+    } else if (!strcmp(tokens[1], "-free")) {
+        if (tokens[2] != NULL_TEXT)
+            deleteMmap(tokens[2]);
+        else
+            printMmapList();
     } else {
-        //int N = 5;
-
-        int N = 5;
-        int *ptr = mmap ( NULL, N*sizeof(int), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0 );
-
-        if (tokens[2] == NULL_COMMAND) {
-            //ptr
-            if(ptr == MAP_FAILED){
-                printf("Mapping Failed\n");
-                return;
-            }
-        }
-            //fich
-        else {
-            //ptr
-            if(ptr == MAP_FAILED){
-                printf("Mapping Failed\n");
-                return;
-            }
-            //fich [perm]
-        }
-
-        for(int i=0; i<N; i++)
-            ptr[i] = i*10;
-
-        for(int i=0; i<N; i++)
-            printf("[%d] ",ptr[i]);
-
+        Mmap(tokens);
     }
 }
 
 void cmd_shared(char **tokens) {
-
-    if (tokens[1] == NULL_COMMAND) {
-        //show shared memory list
-    } else if (tokens[2] != NULL_COMMAND) {
-
+    if (tokens[1] == NULL_TEXT) {
+        printSharedList();
+    } else if (tokens[2] != NULL_TEXT) {
         if (!strcmp(tokens[1], "-free")) {
-            if (tokens[2] != NULL_COMMAND)
-                free(tokens[2]);
-            //else show shared memory list
+            SharedFree(tokens[2]);
         } else if (!strcmp(tokens[1], "-create")) {
             SharedCreate(tokens);
-        } else if (!strcmp(tokens[1], "-delKey")) {
+        } else if (!strcmp(tokens[1], "-delkey")) {
             SharedDelkey(tokens);
-        }
+        } else printSharedList();
     }
 }
 
 void cmd_dealloc(char **tokens) {
 
+    if (tokens[1] == NULL_TEXT) {
+        printMemoryList();
+    } else if (tokens[2] != NULL_TEXT) {
+        if (!strcmp(tokens[1], "-malloc")) deleteMalloc(tokens[2]);
+        else if (!strcmp(tokens[1], "-shared")) SharedFree(tokens[2]);
+        else if (!strcmp(tokens[1], "-mmap")) deleteMmap(tokens[2]);
+    } else deleteAddress(tokens[1]);
 }
 
-void cmd_memoria(char **tokens) {
+void cmd_memoria(char **tokens)  {
+    bool all = false;
+    if (tokens[1] == NULL_TEXT || !strcmp(tokens[1], "-all")) all = true;
+    else if (!strcmp(tokens[1], "-pmap")) { dopmap(); return; }
+    if (!strcmp(tokens[1], "-blocks") || all) doblocks();
+    if (!strcmp(tokens[1], "-vars") || all) dovars();
+    if (!strcmp(tokens[1], "-funcs") || all) dofuncs();
+}
 
+void * charToVoid(char * string) {
+    void * output = (void *) (long int) strtol(string, NULL, 16);
+    return output;
 }
 
 void cmd_volcarmem(char **tokens) {
+    int i, j, k, length, lineLength;
+    length = lineLength = 25;
 
+    void * address = charToVoid(tokens[1]);
+    char * txt = (char *) address;
+
+    if(tokens[2] != NULL) length = (int) strtol(tokens[2], NULL, 10);
+
+    for (i = 0; i < length; i += lineLength) {
+        for (j = i; j < length && j - i < lineLength; j++) {
+            if (txt[j] != '\n') printf(" %c ", txt[j]);
+            else printf("   ");
+        }
+        printf("\n");
+        for (k = i; k < length && k - i < lineLength; k++) {
+            printf("%.2x ", txt[k]);
+        }
+        printf("\n");
+    }
+}
+
+char charToASCII(char *string) {
+    char output;
+    if (string[1] == 'x')
+        output = (char) strtoul(string, NULL, 16);
+    else {
+        output = (char) strtol(string, NULL, 10);
+        if (output == 0) output = string[0];
+    }
+    return output;
 }
 
 void cmd_llenarmem(char **tokens) {
 
+    char byte = 65;
+    int cont = 128;
+
+    void * address = charToVoid(tokens[1]);
+
+    if (tokens[2] != NULL) {
+        if (tokens[3] != NULL) { cont = (int) strtol(tokens[2], NULL, 10);
+                                 byte = charToASCII(tokens[3]); }
+        else cont = (int) strtol(tokens[2], NULL, 10);
+    }
+    memset(address, byte, (size_t) cont);
 }
 
 #define SIZE 4096
@@ -405,8 +592,25 @@ void cmd_recursiva(char **tokens) {
     doRecursiva(SIZE);
 }
 
-void cmd_comando(char *tokens[]) {
-    tCommand_pos N;
+void cmd_read(char **tokens) {
+    int n = -1;
+    void * address = charToVoid(tokens[2]);
+    if (tokens[3] != NULL) n = (int) strtol(tokens[3], NULL, 10);
+
+    if (LeerFichero(tokens[1], address, n) == -1) printf("Error: %s\n", strerror(errno));
+}
+
+void cmd_write(char **tokens) {
+    int o = 0, n = 0;
+    if (!strcmp(tokens[1], "-o")) o = 1;
+    void * address = charToVoid(tokens[2 + o]);
+    if (tokens[3 + o] != NULL) n = (int) strtol(tokens[3 + o], NULL, 10);
+
+    if (EscribirFichero(tokens[1 + o], address, n, o) == -1) printf("Error: %s\n", strerror(errno));
+}
+
+void cmd_comando(char **tokens) {
+    tPos N;
 
     if (tokens[1] == NULL) {
         printf("command not found");
@@ -417,47 +621,46 @@ void cmd_comando(char *tokens[]) {
         return;
     }
 
-    N = (tCommand_pos) (strtol(tokens[1], tokens, 0));
+    N = (tPos) (strtol(tokens[1], tokens, 0));
 
     if (last(list) > N) {
         printf("there is no such command \n");return;}
     else {
-        tCommand command = getItem(N, list);
-        splitString(command.command, tokens);
+        struct tNode command = getItem(N, list);
+        splitString(command.data.text, tokens);
         processInput(tokens);
     }
 }
 
-void printList(tCommand_pos pos){
-    tCommand_pos aux = first(list);
-    tCommand node;
+void printList(tPos pos) {
+    tPos aux = first(list);
+    struct tNode node;
     int i = 0;
 
     while(aux < pos){
         node = getItem (aux, list);
-        printf("%i -> %s\n", i, node.command);
+        printf("%i -> %s\n", i, node.data.text);
         aux = next(aux, list);
         i++;
     }
 }
 
-void cmd_hist(char *tokens[]){
-    tCommand_pos p = first(list);
-    tCommand node;
+void cmd_hist(char **tokens) {
+    tPos p = first(list);
+    tText node;
 
     if(tokens[1] == NULL) printList(last(list));
     else{
         if(strcmp(tokens[1], "-c") == 0)
-            while(list!=NULL_COMMAND) deleteAtPosition(p, &list);
+            while(list!=NULL) deleteAtPosition(p, &list);
         else {
-            p = (tCommand_pos) strtol(tokens[1], tokens, 0);
+            p = (tPos) strtol(tokens[1], tokens, 0);
             printList(p);
         }
     }
 }
 
-
-void cmd_ayuda(char *tokens[]){
+void cmd_ayuda(char *tokens[]) {
     if(tokens[1] == NULL)
         printf("'ayuda cmd' where cmd represents one of the avaliable commands: \n"
                "comando, hist, ayuda, listfich, listdir, borrar, borrarrec, crear, carpeta\n"
@@ -477,7 +680,6 @@ void cmd_ayuda(char *tokens[]){
     }
 }
 
-
 void cmd_autores(char **tokens) {
     if (tokens[1] == NULL)
         printf("Alejandro Fernandez Vazquez    a.fernandez9@udc.es\nYago Fernandez Rego            yago.fernandez.rego@udc.es\n");
@@ -489,7 +691,7 @@ void cmd_autores(char **tokens) {
 
 }
 
-void cmd_pid(char *tokens[]){
+void cmd_pid(char **tokens) {
     if (tokens[1]==NULL)
         printf("Shell process  pid: %d\n", getpid());
     else if(strcmp(tokens[1],"-p")==0)
@@ -498,8 +700,7 @@ void cmd_pid(char *tokens[]){
         printf("Command %s %s not found \n", tokens[0],tokens[1]);
 }
 
-
-void cmd_fecha(char *tokens[]){
+void cmd_fecha(char **tokens) {
 
     time_t T = time(NULL);
     struct tm tm = *localtime(&T);
@@ -517,8 +718,7 @@ void cmd_fecha(char *tokens[]){
         printf("Command %s %s not found\n", tokens[0], tokens[1]);
 }
 
-
-void cmd_infosis(char *tokens[]){
+void cmd_infosis(char **tokens) {
     struct utsname unameData;
     uname(&unameData);
     //prints all the information
@@ -526,8 +726,7 @@ void cmd_infosis(char *tokens[]){
            unameData.sysname, unameData.nodename, unameData.release, unameData.version, unameData.machine);
 }
 
-void cmd_fin(char *tokens[]){}
-
+void cmd_fin(char **tokens) { exit(0); }
 
 //auxiliary function
 //show_dir prints the current directory
@@ -563,15 +762,12 @@ void cmd_crear(char **tokens) {
 void cmd_borrar(char **tokens) {
 
     if (tokens[1] == NULL) { show_dir(); return; } //no argument prints the current directory
-
     int token_point = 1;
 
     while (tokens[token_point] != NULL) { //iterating through all the arguments
-
         if (remove(tokens[token_point]) == 0) //delete success
             printf("%s was deleted successfully\n", tokens[token_point]);
-        else
-            printf("%s couldn't be deleted\n", tokens[token_point]); //error
+        else printf("%s couldn't be deleted\n", tokens[token_point]); //error
 
         token_point++;
     }
@@ -580,7 +776,7 @@ void cmd_borrar(char **tokens) {
 //auxiliary function
 //prints the name and all the attributes of the file (or folder)
 
-void print_file(bool *op[], char *tokens) {
+void print_file(bool **op, char *tokens) {
 
     //structs needed for the info of the file/directory:
     struct stat st = {};
@@ -742,7 +938,6 @@ void cmd_borrarrec(char **tokens) {
 
 //auxiliary function
 //list_detect checks/modifies the op[] array when executing listfich and listdir
-
 
 bool list_detect(bool *op[], int arg, char **tokens, bool change, bool isListDir) {
 
@@ -982,6 +1177,7 @@ void cmd_carpeta(char **tokens) {
 int main() {
     char str[MAXLINE]; //variable which stores the input
     createEmptyList(&list);  //list needed for command hist
+    createEmptyList(&mem);  //list needed for allocated memory lists
     char *tokens[MAXLINE];
 
     while (1) {
@@ -996,5 +1192,5 @@ int main() {
         memset(tokens, 0, sizeof tokens);
         memset(str, '0', sizeof(str));
     }
-    free(list);
+    //free(list);
 }
