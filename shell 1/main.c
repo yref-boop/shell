@@ -126,7 +126,7 @@ void storeOnList (char *tokens[]) {
 
 void processInput(char *tokens[]) {
     //nothing to process
-    if (tokens[0]== NULL) return;
+    if (tokens[0] == NULL) return;
 
     //check for all commands on C struct if there is a match
     for(int i = 0; C[i].name != NULL; i++){
@@ -305,7 +305,7 @@ ssize_t LeerFichero (char *fich, void *p, ssize_t n) {
         aux = errno;
         close(df);
         errno = aux;
-        return -1;
+        return -2;
     }
     close (df);
     return nleidos;
@@ -426,9 +426,8 @@ void dofuncs() {
 void cmd_malloc(char *tokens[]) {
     void * *ptr;
 
-    if (tokens[1] == NULL_TEXT) {
-        printMallocList();
-    } else if (!strcmp(tokens[1], "-free")) {
+    if (tokens[1] == NULL_TEXT) { printMallocList(); return; }
+    else if (!strcmp(tokens[1], "-free")) {
         if (tokens[2] != NULL_TEXT) {
             deleteMalloc(tokens[2]);
         } else printMallocList();
@@ -440,7 +439,7 @@ void cmd_malloc(char *tokens[]) {
 }
 
 void cmd_mmap(char *tokens[]) {
-    if (tokens[1] == NULL_TEXT) printMmapList();
+    if (tokens[1] == NULL_TEXT) { printMmapList(); return; }
     else if (!strcmp(tokens[1], "-free")) {
         if (tokens[2] != NULL_TEXT) deleteMmap(tokens[2]);
         else printMmapList();
@@ -448,7 +447,7 @@ void cmd_mmap(char *tokens[]) {
 }
 
 void cmd_shared(char *tokens[]) {
-    if (tokens[1] == NULL_TEXT) printSharedList();
+    if (tokens[1] == NULL_TEXT) { printSharedList(); return; }
     else if (tokens[2] != NULL_TEXT) {
         if (!strcmp(tokens[1], "-free")) SharedFree(tokens[2]);
         else if (!strcmp(tokens[1], "-create")) SharedCreate(tokens);
@@ -458,7 +457,7 @@ void cmd_shared(char *tokens[]) {
 }
 
 void cmd_dealloc(char *tokens[]) {
-    if (tokens[1] == NULL_TEXT) printMemoryList();
+    if (tokens[1] == NULL_TEXT) { printMemoryList(); return; }
     else if (tokens[2] != NULL_TEXT) {
         if (!strcmp(tokens[1], "-malloc")) deleteMalloc(tokens[2]);
         else if (!strcmp(tokens[1], "-shared")) SharedFree(tokens[2]);
@@ -545,7 +544,7 @@ void cmd_read(char *tokens[]) {
     void * address = charToVoid(tokens[2]);
     if (tokens[3] != NULL)
         n = (int) strtol(tokens[3], NULL, 10);
-    if (LeerFichero(tokens[1], address, n) == -1) printf("Error: %s\n", strerror(errno));
+    if (LeerFichero(tokens[1], address, n) < 0) printf("Error: %s\n", strerror(errno));
 }
 
 void cmd_write(char *tokens[]) {
