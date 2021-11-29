@@ -14,6 +14,8 @@
 #include <sys/shm.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
+#include <signal.h>
+#include <sys/resource.h>
 
 //Alejandro Fernandez Vazquez    a.fernandez9@udc.es
 //Yago Fernandez Rego            yago.fernandez.rego@udc.es
@@ -71,9 +73,6 @@ void cmd_listjobs(char **);
 void cmd_job(char **);
 void cmd_borrarjobs(char **);
 
-
-
-
 struct CMD {
     char *name;
     void (*func) (char**);
@@ -127,6 +126,99 @@ struct CMD C[]={
         {NULL,  NULL}
 };
 
+///*****************************SIGNALS***********************************
+struct SEN{
+    char *nombre;
+    int senal;
+};
+
+static struct SEN sigstrnum[]={
+        "HUP", SIGHUP,
+        "INT", SIGINT,
+        "QUIT", SIGQUIT,
+        "ILL", SIGILL,
+        "TRAP", SIGTRAP,
+        "ABRT", SIGABRT,
+        "IOT", SIGIOT,
+        "BUS", SIGBUS,
+        "FPE", SIGFPE,
+        "KILL", SIGKILL,
+        "USR1", SIGUSR1,
+        "SEGV", SIGSEGV,
+        "USR2", SIGUSR2,
+        "PIPE", SIGPIPE,
+        "ALRM", SIGALRM,
+        "TERM", SIGTERM,
+        "CHLD", SIGCHLD,
+        "CONT", SIGCONT,
+        "STOP", SIGSTOP,
+        "TSTP", SIGTSTP,
+        "TTIN", SIGTTIN,
+        "TTOU", SIGTTOU,
+        "URG", SIGURG,
+        "XCPU", SIGXCPU,
+        "XFSZ", SIGXFSZ,
+        "VTALRM", SIGVTALRM,
+        "PROF", SIGPROF,
+        "WINCH", SIGWINCH,
+        "IO", SIGIO,
+        "SYS", SIGSYS,
+//signals that are not everywhere
+#ifdef SIGPOLL
+        "POLL", SIGPOLL,
+#endif
+#ifdef SIGPWR
+        "PWR", SIGPWR,
+#endif
+#ifdef SIGEMT
+        "EMT", SIGEMT,
+#endif
+#ifdef SIGINFO
+        "INFO", SIGINFO,
+#endif
+#ifdef SIGSTKFLT
+        "STKFLT", SIGSTKFLT,
+#endif
+#ifdef SIGCLD
+        "CLD", SIGCLD,
+#endif
+#ifdef SIGLOST
+        "LOST", SIGLOST,
+#endif
+#ifdef SIGCANCEL
+        "CANCEL", SIGCANCEL,
+#endif
+#ifdef SIGTHAW
+        "THAW", SIGTHAW,
+#endif
+#ifdef SIGFREEZE
+        "FREEZE", SIGFREEZE,
+#endif
+#ifdef SIGLWP
+        "LWP", SIGLWP,
+#endif
+#ifdef SIGWAITING
+        "WAITING", SIGWAITING,
+#endif
+        NULL,-1,
+};
+
+int Senal(char *sen) {
+    //returns the number of signal from the name
+    int i;
+    for (i = 0; sigstrnum[i].nombre != NULL; i++)
+        if (!strcmp(sen, sigstrnum[i].nombre)) return sigstrnum[i].senal;
+    return -1;
+}
+
+char *NombreSenal(int sen) {
+    //returns the number of signal from the signal
+    //when there is not such sig2str
+    int i;
+    for (i = 0; sigstrnum[i].nombre != NULL; i++)
+        if (sen == sigstrnum[i].senal) return sigstrnum[i].nombre;
+    return ("SIGUNKNOWN");
+}
 
 void splitString(char *str, char *tokens[]) {
     char *found;
@@ -1155,30 +1247,115 @@ void cmd_listdir(char *tokens[]) {
     }
 }
 
-void cmd_es (char *tokens[]) {
+void cmd_es(char *tokens[]) {
     if (!strcmp(tokens[1], "read")) ESread(tokens);
     else if (!strcmp(tokens[1], "write")) ESwrite(tokens);
 }
 
-void cmd_priority (char *tokens[]){}
-void cmd_rederr (char *tokens[]){}
-void cmd_entorno (char *tokens[]){}
-void cmd_mostrarvar (char *tokens[]){}
-void cmd_cambiarvar (char *tokens[]){}
-void cmd_uid (char *tokens[]){}
-void cmd_fork (char *tokens[]){}
-void cmd_ejec (char *tokens[]){}
-void cmd_ejecpri (char *tokens[]){}
-void cmd_fg (char *tokens[]){}
-void cmd_fgpri (char *tokens[]){}
-void cmd_back (char *tokens[]){}
-void cmd_backpri (char *tokens[]){}
-void cmd_ejecas (char *tokens[]){}
-void cmd_fgas (char *tokens[]){}
-void cmd_bgas (char *tokens[]){}
-void cmd_listjobs (char *tokens[]){}
-void cmd_job (char *tokens[]){}
-void cmd_borrarjobs (char *tokens[]){}
+void MostrarEntorno(char **entorno, char *nombre_entorno) {
+    int i = 0;
+    while (entorno[i] != NULL) {
+        printf ("%p->%s[%d]=(%p) %s\n", &entorno[i], nombre_entorno, i, entorno[i], entorno[i]);
+        i++;
+    }
+}
+
+int BuscarVariable (char *var, char *e[]) {
+    int pos = 0;
+    char aux[MAXLINE];
+    strcpy(aux,var);
+    strcat(aux, "=");
+    while (e[pos] != NULL)
+        if (!strncmp(e[pos], aux, strlen(aux))) return pos;
+        else pos++;
+    errno = ENOENT; //there is not such variable
+    return(-1);
+}
+
+int CambiarVariable(char *var, char *valor, char *e[]) {
+    int pos;
+    char *aux;
+    if ((pos = BuscarVariable(var, e)) == -1) return(-1);
+    if ((aux = (char *) malloc(strlen(var) + strlen(valor) + 2)) == NULL) return -1;
+    strcpy(aux, var);
+    strcat(aux, "=");
+    strcat(aux, valor);
+    e[pos] = aux;
+    return pos;
+}
+
+char * NombreUsuario (uid_t uid) {
+    struct passwd *p;
+    if ((p = getpwuid(uid)) == NULL) return " ??????";
+    return p->pw_name;
+}
+
+uid_t UidUsuario (char *nombre) {
+    struct passwd *p;
+    if ((p = getpwnam(nombre)) == NULL) return (uid_t) - 1;
+    return p->pw_uid;
+}
+
+void MostrarUidsProceso (void) {
+    uid_t real = getuid(), efec = geteuid();
+    printf("Real credential: %d, (%s)\n", real, NombreUsuario (real));
+    printf("Effective credential: %d, (%s)\n", efec, NombreUsuario (efec));
+}
+
+void CambiarUidLogin (char *login) {
+    uid_t uid;
+    if ((uid = UidUsuario(login)) == (uid_t) - 1) { printf("Login not valid: %s\n", login); return; }
+    if (setuid(uid) == .1) printf("Unable to create credential: %s\n", strerror(errno));
+}
+
+void cmd_priority (char *tokens[]) {
+    int which = PRIO_PROCESS;
+    signed int pid;
+    if (tokens [1] == NULL) pid = getpid();
+    else pid = (int) strtol(tokens[1], NULL, 10);
+    if(tokens [2] == NULL) printf("%d", getpriority(which, pid));
+    else {
+        int priority = (int) strtol(tokens[1], NULL, 10);
+        if (!(setpriority(which, pid, priority))) printf("the priority could not be set");
+        else printf("the new priority has been set");
+    }
+}
+
+void cmd_rederr (char *tokens[]) {}
+
+void cmd_entorno (char *tokens[]) {}
+
+void cmd_mostrarvar (char *tokens[]) {}
+
+void cmd_cambiarvar (char *tokens[]) {}
+
+void cmd_uid (char *tokens[]) {}
+
+void cmd_fork (char *tokens[]) {}
+
+void cmd_ejec (char *tokens[]) {}
+
+void cmd_ejecpri (char *tokens[]) {}
+
+void cmd_fg (char *tokens[]) {}
+
+void cmd_fgpri (char *tokens[]) {}
+
+void cmd_back (char *tokens[]) {}
+
+void cmd_backpri (char *tokens[]) {}
+
+void cmd_ejecas (char *tokens[]) {}
+
+void cmd_fgas (char *tokens[]) {}
+
+void cmd_bgas (char *tokens[]) {}
+
+void cmd_listjobs (char *tokens[]) {}
+
+void cmd_job (char *tokens[]) {}
+
+void cmd_borrarjobs (char *tokens[]) {}
 
 
 int main() {
