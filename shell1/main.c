@@ -25,11 +25,6 @@ tList list;
 tList mem;
 int forMemoria;
 
-void cmd_crear(char **);
-void cmd_borrar(char **);
-void cmd_borrarrec(char **);
-void cmd_listfich(char **);
-void cmd_listdir(char **);
 void cmd_autores(char **);
 void cmd_carpeta(char **);
 void cmd_pid(char **);
@@ -39,6 +34,13 @@ void cmd_ayuda(char **);
 void cmd_hist(char **);
 void cmd_fin(char **);
 void cmd_comando(char **);
+
+void cmd_crear(char **);
+void cmd_borrar(char **);
+void cmd_borrarrec(char **);
+void cmd_listfich(char **);
+void cmd_listdir(char **);
+
 void cmd_malloc(char **);
 void cmd_mmap(char **);
 void cmd_shared(char **);
@@ -48,6 +50,28 @@ void cmd_volcarmem(char **);
 void cmd_llenarmem(char **);
 void cmd_es(char **);
 void cmd_recursiva(char **);
+
+void cmd_priority(char **);
+void cmd_rederr(char **);
+void cmd_entorno(char **);
+void cmd_mostrarvar(char **);
+void cmd_cambiarvar(char **);
+void cmd_uid(char **);
+void cmd_fork(char **);
+void cmd_ejec(char **);
+void cmd_ejecpri(char **);
+void cmd_fg(char **);
+void cmd_fgpri(char **);
+void cmd_back(char **);
+void cmd_backpri(char **);
+void cmd_ejecas(char **);
+void cmd_fgas(char **);
+void cmd_bgas(char **);
+void listjobs(char **);
+void cmd_job(char **);
+void cmd_borrarjobs(char **);
+
+
 
 
 struct CMD {
@@ -1116,6 +1140,27 @@ void cmd_es (char *tokens[]) {
     if (!strcmp(tokens[1], "read")) ESread(tokens);
     else if (!strcmp(tokens[1], "write")) ESwrite(tokens);
 }
+
+void cmd_priority (char *tokens[]){}
+void cmd_rederr (char *tokens[]){}
+void cmd_entorno (char *tokens[]){}
+void cmd_mostrarvar (char *tokens[]){}
+void cmd_cambiarvar (char *tokens[]){}
+void cmd_uid (char *tokens[]){}
+void cmd_fork (char *tokens[]){}
+void cmd_ejec (char *tokens[]){}
+void cmd_ejecpri (char *tokens[]){}
+void cmd_fg (char *tokens[]){}
+void cmd_fgpri (char *tokens[]){}
+void cmd_back (char *tokens[]){}
+void cmd_backpri (char *tokens[]){}
+void cmd_ejecas (char *tokens[]){}
+void cmd_fgas (char *tokens[]){}
+void cmd_bgas (char *tokens[]){}
+void cmd_listjobs (char *tokens[]){}
+void cmd_job (char *tokens[]){}
+void cmd_borrarjobs (char *tokens[]){}
+
 
 int main() {
     char str[MAXLINE];      //variable which stores the input
