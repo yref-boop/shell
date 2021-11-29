@@ -67,7 +67,7 @@ void cmd_backpri(char **);
 void cmd_ejecas(char **);
 void cmd_fgas(char **);
 void cmd_bgas(char **);
-void listjobs(char **);
+void cmd_listjobs(char **);
 void cmd_job(char **);
 void cmd_borrarjobs(char **);
 
@@ -102,6 +102,25 @@ struct CMD C[]={
         {"llenarmem", cmd_llenarmem},
         {"recursiva", cmd_recursiva},
         {"e-s",       cmd_es},
+        {"priority",  cmd_priority},
+        {"rederr",    cmd_rederr},
+        {"entorno",   cmd_entorno},
+        {"mostrarvar",cmd_mostrarvar},
+        {"cambiarvar",cmd_cambiarvar},
+        {"uid",       cmd_uid},
+        {"fork",      cmd_fork},
+        {"ejec",      cmd_ejec},
+        {"ejecpri",   cmd_ejecpri},
+        {"fg",        cmd_fg},
+        {"fgpri",     cmd_fgpri},
+        {"back",      cmd_back},
+        {"backpri",   cmd_backpri},
+        {"ejecas",    cmd_ejecas},
+        {"fgas",      cmd_fgas},
+        {"bgas",      cmd_bgas},
+        {"listjobs",  cmd_listjobs},
+        {"job",       cmd_job},
+        {"borrarjobs",cmd_borrarjobs},
         {"fin",       cmd_fin},
         {"bye",       cmd_fin},
         {"salir",     cmd_fin},
