@@ -1,5 +1,5 @@
 # operating-systems
-this is a shell done as homework for the operating systems subject
+shell done as homework for the operating systems subject
 
 the different folders represent different submissions:
   - 0 base shell (info, inner workings, historic list ... )
