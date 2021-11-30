@@ -26,6 +26,10 @@
 tList list;
 tList mem;
 int forMemoria;
+extern char ** environ;
+char ** env2;
+char str_stderr [MAXLINE] = "standard error";
+int stderr_copy;
 
 void cmd_autores(char **);
 void cmd_carpeta(char **);
@@ -274,6 +278,19 @@ bool processInput(char *tokens[]) {
             return false;
         }
     }
+
+    char store[MAXLINE];
+    strcpy(store, "");
+    int i = 0;
+
+    //create a string (store) with the current tokens
+    while(tokens[i] != NULL) {
+        strcat(store, tokens[i]);
+        strcat(store, " ");
+        i++;
+    }
+
+    system(store);
     return false;
 }
 
@@ -1252,15 +1269,7 @@ void cmd_es(char *tokens[]) {
     else if (!strcmp(tokens[1], "write")) ESwrite(tokens);
 }
 
-void MostrarEntorno(char **entorno, char *nombre_entorno) {
-    int i = 0;
-    while (entorno[i] != NULL) {
-        printf ("%p->%s[%d]=(%p) %s\n", &entorno[i], nombre_entorno, i, entorno[i], entorno[i]);
-        i++;
-    }
-}
-
-int BuscarVariable (char *var, char *e[]) {
+int SeekVariable (char *var, char *e[]) {
     int pos = 0;
     char aux[MAXLINE];
     strcpy(aux,var);
@@ -1269,13 +1278,32 @@ int BuscarVariable (char *var, char *e[]) {
         if (!strncmp(e[pos], aux, strlen(aux))) return pos;
         else pos++;
     errno = ENOENT; //there is not such variable
-    return(-1);
+    return -1;
 }
 
-int CambiarVariable(char *var, char *valor, char *e[]) {
+void MostrarEntorno(char **entorno, char *nombre_entorno) {
+    int i = 0;
+    while (entorno[i] != NULL) {
+        printf ("%p->%s[%d]=(%p) %s\n", &entorno[i], nombre_entorno, i, entorno[i], entorno[i]);
+        i++;
+    }
+}
+
+void ShowVariable(char **entorno, char *var) {
+    char * getEnv = getenv(var);
+    int busVar = SeekVariable(var, entorno);
+
+    if (busVar != -1) {
+        printf("%s (%p)<-(%p)\n", entorno[busVar], entorno[busVar], &entorno[busVar]);
+        printf("%s (%p)<-(%p)\n", getEnv, getEnv, &getEnv);
+    } else
+        printf("Error: Couldn't find variable %s\n", var);
+}
+
+int ChangeVariable(char *var, char *valor, char *e[]) {
     int pos;
     char *aux;
-    if ((pos = BuscarVariable(var, e)) == -1) return(-1);
+    if ((pos = SeekVariable(var, e)) == -1) return -1;
     if ((aux = (char *) malloc(strlen(var) + strlen(valor) + 2)) == NULL) return -1;
     strcpy(aux, var);
     strcat(aux, "=");
@@ -1284,56 +1312,103 @@ int CambiarVariable(char *var, char *valor, char *e[]) {
     return pos;
 }
 
-char * NombreUsuario (uid_t uid) {
+char * UserName (uid_t uid) {
     struct passwd *p;
     if ((p = getpwuid(uid)) == NULL) return " ??????";
     return p->pw_name;
 }
 
-uid_t UidUsuario (char *nombre) {
+uid_t UserUID (char *nombre) {
     struct passwd *p;
     if ((p = getpwnam(nombre)) == NULL) return (uid_t) - 1;
     return p->pw_uid;
 }
 
-void MostrarUidsProceso (void) {
+void ShowUIDs (void) {
     uid_t real = getuid(), efec = geteuid();
-    printf("Real credential: %d, (%s)\n", real, NombreUsuario (real));
-    printf("Effective credential: %d, (%s)\n", efec, NombreUsuario (efec));
+    printf("Real credential: %d, (%s)\n", real, UserName(real));
+    printf("Effective credential: %d, (%s)\n", efec, UserName(efec));
 }
 
-void CambiarUidLogin (char *login) {
+void ChangeUIDlogin (char *login) {
     uid_t uid;
-    if ((uid = UidUsuario(login)) == (uid_t) - 1) { printf("Login not valid: %s\n", login); return; }
+    if ((uid = UserUID(login)) == (uid_t) - 1) { printf("Login not valid: %s\n", login); return; }
     if (setuid(uid) == .1) printf("Unable to create credential: %s\n", strerror(errno));
 }
 
 void cmd_priority (char *tokens[]) {
     int which = PRIO_PROCESS;
-    signed int pid;
+    pid_t pid;
     if (tokens [1] == NULL) pid = getpid();
-    else pid = (int) strtol(tokens[1], NULL, 10);
-    if(tokens [2] == NULL) printf("%d", getpriority(which, pid));
+    else pid = (pid_t) strtol(tokens[1], NULL, 10);
+    if(tokens [2] == NULL) printf("%d\n", getpriority(which, pid));
     else {
-        int priority = (int) strtol(tokens[1], NULL, 10);
-        if (!(setpriority(which, pid, priority))) printf("the priority could not be set");
-        else printf("the new priority has been set");
+        int priority = (int) strtol(tokens[2], NULL, 10);
+        if (!(setpriority(which, pid, priority))) printf("\"the new priority has been set\\n");
+        else printf("the priority could not be set\n");
     }
 }
 
-void cmd_rederr (char *tokens[]) {}
+void cmd_rederr (char *tokens[]) {
+    fprintf( stderr, "my %s has %d chars\n", "string format", 30);
+    if ( tokens[1] == NULL ) printf("standard error at: %s\n", str_stderr);
+    else {
+        if (strcmp(tokens[1], "-reset") == 0){
+            if (dup2(stderr_copy,STDERR_FILENO) == -1) printf("could not allocate standard error to given file \n");
+            else printf("standard error reallocated correctly\n");
+            strcpy(str_stderr, "standard error");
+        }
+        else{
+            int fderr = open (tokens[1], (O_RDWR | O_CREAT), S_IWGRP);
+            if (dup2(fderr,STDERR_FILENO) == -1) printf("could not allocate standard error to given file \n");
+            else printf("standard error reallocated correctly\n");
+            close(fderr);
+            strcpy(str_stderr, tokens[1]);
+        }
+    }
+    fprintf( stderr, "my %s has %d chars\n", "string format", 30);
+}
 
-void cmd_entorno (char *tokens[]) {}
+void cmd_entorno (char *tokens[]) {
+    if (tokens[1] == NULL) MostrarEntorno(env2, "shell");
+    else if (!strcmp(tokens[1], "-environ")) MostrarEntorno(environ, "shell");
+    else if (!strcmp(tokens[1], "-addr")) {
+        MostrarEntorno(env2, "shell");
+        MostrarEntorno(environ, "shell");
+    }
+}
 
-void cmd_mostrarvar (char *tokens[]) {}
+void cmd_mostrarvar (char *tokens[]) {
+    if (tokens[1] == NULL) MostrarEntorno(env2, "shell");
+    else ShowVariable(env2, tokens[1]);
+}
 
-void cmd_cambiarvar (char *tokens[]) {}
+void cmd_cambiarvar (char *tokens[]) {
+    if (!strcmp(tokens[1], "-a")) ChangeVariable(tokens[2], tokens[3], env2);
+    else if (!strcmp(tokens[1], "-e")) ChangeVariable(tokens[2], tokens[3], environ);
+    else if (!strcmp(tokens[1], "-p")) {
+        char aux[MAXLINE];
+        strcpy(aux, tokens[2]);
+        strcat(aux, "=");
+        strcat(aux, tokens[3]);
+        putenv(aux);
+    } else printf("Choose a valid option (-a/-e/-p)");
+}
 
-void cmd_uid (char *tokens[]) {}
+void cmd_uid (char *tokens[]) {
+    if (tokens[1] == NULL || tokens[2] == NULL || !strcmp(tokens[1], "-get")) ShowUIDs();
+    else if (!strcmp(tokens[1], "-set") && !strcmp(tokens[2], "-l")) ChangeUIDlogin(tokens[3]);
+    else printf("Error: choose a valid option (-get|-set -l id)\n");
+}
 
-void cmd_fork (char *tokens[]) {}
+void cmd_fork (char *tokens[]) {
+    if (fork() == 1) exit(0); //terminate child
+    else wait(NULL); //reaping parent
+}
 
-void cmd_ejec (char *tokens[]) {}
+void cmd_ejec (char *tokens[]) {
+
+}
 
 void cmd_ejecpri (char *tokens[]) {}
 
@@ -1357,13 +1432,14 @@ void cmd_job (char *tokens[]) {}
 
 void cmd_borrarjobs (char *tokens[]) {}
 
-
-int main() {
+int main(int argc, char *argv[], char *env[]) {
     char str[MAXLINE];      //variable which stores the input
     createEmptyList(&list); //list needed for command hist
     createEmptyList(&mem);  //list needed for allocated memory lists
     char *tokens[MAXLINE];
+    stderr_copy = dup(STDERR_FILENO);
     bool finish = false;    //bool for the loop
+    env2 = env;
 
     while (!finish) {
         printf("*) ");
@@ -1373,4 +1449,5 @@ int main() {
         memset(tokens, 0, sizeof tokens);
         memset(str, '0', sizeof(str));
     }
+    close(stderr_copy);
 }
