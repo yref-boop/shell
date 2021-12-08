@@ -19,11 +19,20 @@ struct tMem {
     tText date;
 };
 
+struct tPro {
+    int pid;
+    tText user;
+    tText exit;
+    tText terminatedBy;
+    tText priLineTime;
+};
+
 //definition of the nodes:
 typedef struct tNode * tPos; //position is a pointer to a node
 struct tNode { //nodes are structures composed of data and a pointer to the next
     tText data; //data in the node
     struct tMem mem;
+    struct tPro pro;
     tPos next; //pointer to next
 };
 typedef tPos tList;

@@ -25,7 +25,7 @@
 #define SIZE 4096
 tList list;
 tList mem;
-int forMemoria;
+tList jobs;
 extern char ** environ;
 char ** env2;
 char str_stderr [MAXLINE] = "standard error";
@@ -885,7 +885,7 @@ void dovars() {
     printf("GLOBAL VARIABLES:\n");
     printf("Address of list: %p\n", &list);
     printf("Address of mem: %p\n", &mem);
-    printf("Address of forMemoria: %p\n", &forMemoria);
+    printf("Address of jobs: %p\n", &jobs);
 
     static int a = 7;
     static char b = 'b';
@@ -1336,29 +1336,33 @@ void ChangeUIDlogin (char *login) {
     if (setuid(uid) == .1) printf("Unable to create credential: %s\n", strerror(errno));
 }
 
+void ChangePriority(int whichPriority, int pid, int priority) {
+    if (!(setpriority(whichPriority, pid, priority))) printf("the new priority has been set\n");
+    else printf("the priority could not be set\n");
+}
+
 void cmd_priority (char *tokens[]) {
-    int which = PRIO_PROCESS;
+    int which = PRIO_PROCESS, priority;
     pid_t pid;
-    if (tokens [1] == NULL) pid = getpid();
+    if (tokens[1] == NULL) pid = getpid();
     else pid = (pid_t) strtol(tokens[1], NULL, 10);
-    if(tokens [2] == NULL) printf("%d\n", getpriority(which, pid));
+    if (tokens[2] == NULL) printf("%d\n", getpriority(which, pid));
     else {
-        int priority = (int) strtol(tokens[2], NULL, 10);
-        if (!(setpriority(which, pid, priority))) printf("\"the new priority has been set\\n");
-        else printf("the priority could not be set\n");
+        priority = (int) strtol(tokens[2], NULL, 10);
+        ChangePriority(which, pid, priority);
     }
 }
 
 void cmd_rederr (char *tokens[]) {
     fprintf( stderr, "my %s has %d chars\n", "string format", 30);
-    if ( tokens[1] == NULL ) printf("standard error at: %s\n", str_stderr);
+    if (tokens[1] == NULL) printf("standard error at: %s\n", str_stderr);
     else {
         if (strcmp(tokens[1], "-reset") == 0){
             if (dup2(stderr_copy,STDERR_FILENO) == -1) printf("could not allocate standard error to given file \n");
             else printf("standard error reallocated correctly\n");
             strcpy(str_stderr, "standard error");
         }
-        else{
+        else {
             int fderr = open (tokens[1], (O_RDWR | O_CREAT), S_IWGRP);
             if (dup2(fderr,STDERR_FILENO) == -1) printf("could not allocate standard error to given file \n");
             else printf("standard error reallocated correctly\n");
@@ -1406,36 +1410,153 @@ void cmd_fork (char *tokens[]) {
     else wait(NULL); //reaping parent
 }
 
-void cmd_ejec (char *tokens[]) {
-
+void getArguments (char *tokens[], char *output[], int startIn) {
+    int i = 0;
+    while (tokens[i + startIn - 1] != NULL) {
+        output[i] = tokens[i + startIn - 1];
+        i++;
+    }
 }
 
-void cmd_ejecpri (char *tokens[]) {}
+void prio (char *token) {
+    pid_t pid = getpid();
+    int priority = (int) strtol(token, NULL, 10);
+    ChangePriority(PRIO_PROCESS, pid, priority);
+}
 
-void cmd_fg (char *tokens[]) {}
+void as (char *tokens[]) {
+    ChangeUIDlogin(tokens[1]);
+    int i = 0, j = 1;
+    while (tokens[i] != NULL) i++;
+    while (j != i + 1) { tokens[j] = tokens[j + 1]; j++; }
+}
 
-void cmd_fgpri (char *tokens[]) {}
+void execute (char *tokens[], bool isPrio) {
+    if (isPrio) prio(tokens[1]);
+    char *arguments[MAXLINE];
+    getArguments(tokens, arguments, 2 + isPrio);
+    execvp(tokens[1 + isPrio], arguments);
+}
 
-void cmd_back (char *tokens[]) {}
+void foreground (char *tokens[], bool isPrio) {
+    pid_t pid;
+    char *arguments[MAXLINE];
+    if ((pid = fork()) == 0) {
+        if (isPrio) prio(tokens[1]);
+        getArguments(tokens, arguments, 2 + isPrio);
+        if (execvp(tokens[1 + isPrio], arguments) == -1)
+            perror ("Cannot execute");
+        exit(255); //exec has failed for whatever reason
+    }
+    waitpid (pid,NULL,0);
+}
 
-void cmd_backpri (char *tokens[]) {}
+void background (char *tokens[], bool isPrio) {
+    pid_t pid;
+    char *arguments[MAXLINE];
+    if ((pid = fork()) == 0) {
+        if (isPrio) prio(tokens[1]);
+        getArguments(tokens, arguments, 2 + isPrio);
+        if (execvp(tokens[1 + isPrio], arguments) == -1)
+            perror ("Cannot execute");
+        exit(255); //exec has failed for whatever reason
+    }
+//parent process continues here...
+}
 
-void cmd_ejecas (char *tokens[]) {}
+void cmd_ejec (char *tokens[]) {
+    execute(tokens, false);
+}
 
-void cmd_fgas (char *tokens[]) {}
+void cmd_fg (char *tokens[]) {
+    foreground(tokens, false);
+}
 
-void cmd_bgas (char *tokens[]) {}
+void cmd_back (char *tokens[]) {
+    background(tokens, false);
+}
 
-void cmd_listjobs (char *tokens[]) {}
+void cmd_ejecpri (char *tokens[]) {
+    execute(tokens, true);
+}
 
-void cmd_job (char *tokens[]) {}
+void cmd_fgpri (char *tokens[]) {
+    foreground(tokens, true);
+}
 
-void cmd_borrarjobs (char *tokens[]) {}
+void cmd_backpri (char *tokens[]) {
+    background(tokens, true);
+}
+
+void cmd_ejecas (char *tokens[]) {
+    as(tokens);
+    execute(tokens, true);
+}
+
+void cmd_fgas (char *tokens[]) {
+    as(tokens);
+    foreground(tokens, true);
+}
+
+void cmd_bgas (char *tokens[]) {
+    as(tokens);
+    background(tokens, true);
+}
+
+void printJob(tPos p) {
+    struct tNode job = getItem(p, jobs);
+    printf("%s %d %s %s %s\n",
+           job.pro.user.text, job.pro.pid, job.pro.priLineTime.text, job.pro.exit.text, job.pro.terminatedBy.text);}
+
+void printJobs () {
+    for (tPos p = first(jobs); p != NULL; p = next(p, jobs)) { printJob(p); }
+}
+
+void cmd_listjobs (char *tokens[]) {
+    printJobs();
+}
+
+void cmd_job (char *tokens[]) {
+    bool fg = false;
+    if (!strcmp(tokens[1], "-fg")) fg = true;
+    if (tokens[1 + fg] == NULL) { printJobs(); return; }
+    else
+        for (tPos p = first(jobs); p != NULL; p = next(p, jobs))
+            if (getItem(p, jobs).pro.pid == strtol(tokens[1 + fg], NULL, 10)) {
+                printJob(p);
+                if (fg) waitpid(getItem(p, jobs).pro.pid,NULL,0);
+            }
+}
+
+void removeJobWhen (bool normalExit, bool signalExit, bool clear) {
+    tPos Next;
+    for (tPos p = first(jobs); p != NULL; p = Next) {
+        Next = next(p, jobs);
+        if (clear) { deleteAtPosition(p, &jobs); continue; }
+        if (normalExit)
+            if (!strcmp(getItem(p, jobs).pro.terminatedBy.text, "Terminated Normally")) {
+                deleteAtPosition(p, &jobs); continue;
+            }
+        if (signalExit)
+            if (!strcmp(getItem(p, jobs).pro.terminatedBy.text, "Terminated By Signal")) {
+                deleteAtPosition(p, &jobs); continue;
+            }
+    }
+}
+
+void cmd_borrarjobs (char *tokens[]) {
+    if (!strcmp(tokens[1], "-term")) removeJobWhen(true, false, false);
+    else if (!strcmp(tokens[1], "-sig")) removeJobWhen(false, true, false);
+    else if (!strcmp(tokens[1], "-all")) removeJobWhen(true, true, false);
+    else if (!strcmp(tokens[1], "-clear")) removeJobWhen(false, false, true);
+    else printf("Choose a valid option [-term | -sig | -all | -clear]");
+}
 
 int main(int argc, char *argv[], char *env[]) {
     char str[MAXLINE];      //variable which stores the input
     createEmptyList(&list); //list needed for command hist
     createEmptyList(&mem);  //list needed for allocated memory lists
+    createEmptyList(&jobs); //list needed for background processes
     char *tokens[MAXLINE];
     stderr_copy = dup(STDERR_FILENO);
     bool finish = false;    //bool for the loop
