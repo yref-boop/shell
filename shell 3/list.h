@@ -20,10 +20,10 @@ struct tMem {
 };
 
 struct tPro {
-    int pid;
+    pid_t pid;
     tText user;
-    tText exit;
-    tText terminatedBy;
+    tText state;
+    int terminatedBy;
     tText priLineTime;
 };
 
@@ -45,6 +45,7 @@ tPos first(tList list); //returns the position of the first element of a non-emp
 tPos next (tPos pos, tList list); //returns the position of the following element of an item in a given position of a list
 bool insertItem(struct tNode node, tList *list); // inserts item with given contents
 void deleteAtPosition(tPos pos, tList *list); //deletes item from the list at a given position
+void updateProcess(tPos pos, tList *list, char *state, int terminatedBy); //updates a process' information
 struct tNode getItem(tPos pos, tList list); //returns the contents of an element at a given position
 
 #endif //SHELL_HIST_H

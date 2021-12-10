@@ -131,9 +131,9 @@ struct CMD C[]={
 };
 
 ///*****************************SIGNALS***********************************
-struct SEN{
-    char *nombre;
-    int senal;
+struct SEN {
+    char *name;
+    int signal;
 };
 
 static struct SEN sigstrnum[]={
@@ -204,23 +204,14 @@ static struct SEN sigstrnum[]={
 #ifdef SIGWAITING
         "WAITING", SIGWAITING,
 #endif
-        NULL,-1,
+        NULL,-1
 };
 
-int Senal(char *sen) {
-    //returns the number of signal from the name
-    int i;
-    for (i = 0; sigstrnum[i].nombre != NULL; i++)
-        if (!strcmp(sen, sigstrnum[i].nombre)) return sigstrnum[i].senal;
-    return -1;
-}
-
-char *NombreSenal(int sen) {
+char * SignalName(int sen) {
     //returns the number of signal from the signal
     //when there is not such sig2str
-    int i;
-    for (i = 0; sigstrnum[i].nombre != NULL; i++)
-        if (sen == sigstrnum[i].senal) return sigstrnum[i].nombre;
+    for (int i = 0; sigstrnum[i].name != NULL; i++)
+        if (sen == sigstrnum[i].signal) return sigstrnum[i].name;
     return ("SIGUNKNOWN");
 }
 
@@ -684,7 +675,7 @@ void printSharedList() {
     do { readInList(getItem(p, mem), "shared", "all"); p = next(p, mem); } while(p != NULL);
 }
 
-void * ObtenerMemoriaShmget (key_t clave, size_t tam) {
+void * ObtenerMemoriaShmget(key_t clave, size_t tam) {
     //obtain a pointer to a shared memory zone
     //if (tam > 0) tries to create it, if (tam = 0) it assumes it exists
     void * p;
@@ -710,7 +701,7 @@ void * ObtenerMemoriaShmget (key_t clave, size_t tam) {
     return (p); //save in Shared Memory Addresses (p, s.shm_segsz, clave.....)
 }
 
-void * MmapFichero (char * fichero, int protection) {
+void * MmapFichero(char * fichero, int protection) {
     int df, map = MAP_PRIVATE, modo = O_RDONLY;
     struct stat s;
     void *p;
@@ -722,7 +713,7 @@ void * MmapFichero (char * fichero, int protection) {
     return p;
 }
 
-void Mmap (char *tokens[]) {
+void Mmap(char *tokens[]) {
     char *perm;
     void *p;
     int protection = 0;
@@ -739,7 +730,7 @@ void Mmap (char *tokens[]) {
         printf ("file %s mapped in %p\n", tokens[1], p);
 }
 
-void doRecursiva (int n) {
+void doRecursiva(int n) {
     //recursive function
     char automatico[SIZE];
     static char estatico[SIZE];
@@ -751,7 +742,7 @@ void doRecursiva (int n) {
     if (n > 0) doRecursiva(n);
 }
 
-void SharedCreate (char *tokens[]) {
+void SharedCreate(char *tokens[]) {
     key_t k;
     size_t tam = 0;
     void *p;
@@ -769,7 +760,7 @@ void SharedCreate (char *tokens[]) {
     }
 }
 
-ssize_t ReadFich (char *fich, void *p, ssize_t n) {
+ssize_t ReadFich(char *fich, void *p, ssize_t n) {
     //reads n bytes of the directory fich in p
     ssize_t nRead, tam = n; //if (n == -1) it reads the complete directory
     int fd, aux;
@@ -792,7 +783,7 @@ ssize_t ReadFich (char *fich, void *p, ssize_t n) {
     return nRead;
 }
 
-ssize_t WriteFich (char *fich, void *p, ssize_t n, int overwrite) {
+ssize_t WriteFich(char *fich, void *p, ssize_t n, int overwrite) {
     //reads n bytes of the directory fich in p
     ssize_t nRead, tam = n; //if (n == -1) it reads the complete directory
     int fd, aux;
@@ -824,7 +815,7 @@ ssize_t WriteFich (char *fich, void *p, ssize_t n, int overwrite) {
     return nRead;
 }
 
-void SharedDelkey (char *tokens[]) { //tokens[2] points to a str containing the key
+void SharedDelkey(char *tokens[]) { //tokens[2] points to a str containing the key
     key_t clave;
     int id;
     char *key = tokens[2];
@@ -844,7 +835,7 @@ void SharedDelkey (char *tokens[]) { //tokens[2] points to a str containing the 
         printf("Key %s removed from the system\n", tokens[2]);
 }
 
-void SharedFree (char key[]) { //tokens[2] points to a str containing the key
+void SharedFree(char key[]) { //tokens[2] points to a str containing the key
     tPos p = first(mem);
     while(p != NULL) {
         if (getItem(p, mem).mem.key == strtol(key, NULL, 10)) {
@@ -859,7 +850,7 @@ void SharedFree (char key[]) { //tokens[2] points to a str containing the key
     }
 }
 
-void dopmap (void) { //no arguments necessary
+void dopmap(void) { //no arguments necessary
     pid_t pid; //executes the extern command pmap
     char elpid[32]; //pid of the current process
     char *argv[3] = {"pmap", elpid, NULL};
@@ -917,6 +908,18 @@ void dofuncs() {
     printf("Address of strcmp: %p\n", strcmp);
 }
 
+char charToASCII(char string[]) {
+    //returns the ascii value given several possible formats
+    char output;
+    if (string[1] == 'x')
+        output = (char) strtoul(string, NULL, 16);
+    else {
+        output = (char) strtol(string, NULL, 10);
+        if (output == 0) output = string[0];
+    }
+    return output;
+}
+
 void printHist(tPos pos) {
     //prints the contents of the given list
     tPos aux = first(list);
@@ -954,6 +957,232 @@ void ESwrite(char *tokens[]) {
     if (tokens[4 + o] != NULL)
         n = (int) strtol(tokens[4 + o], NULL, 10);
     if (WriteFich(tokens[2 + o], address, n, o) < 0) printf("Error: %s\n", strerror(errno));
+}
+
+int SeekVariable(char *var, char *e[]) {
+    int pos = 0;
+    char aux[MAXLINE];
+    strcpy(aux,var);
+    strcat(aux, "=");
+    while (e[pos] != NULL)
+        if (!strncmp(e[pos], aux, strlen(aux))) return pos;
+        else pos++;
+    errno = ENOENT; //there is not such variable
+    return -1;
+}
+
+void MostrarEntorno(char **entorno, char *nombre_entorno) {
+    for (int i = 0; entorno[i] != NULL; i++)
+        printf ("%p->%s[%d]=(%p) %s\n", &entorno[i], nombre_entorno, i, entorno[i], entorno[i]);
+}
+
+void ShowVariable(char **entorno, char *var) {
+    char * getEnv = getenv(var);
+    int busVar = SeekVariable(var, entorno);
+
+    if (busVar != -1) {
+        printf("%s (%p)<-(%p)\n", entorno[busVar], entorno[busVar], &entorno[busVar]);
+        printf("%s (%p)<-(%p)\n", getEnv, getEnv, &getEnv);
+    } else
+        printf("Error: Couldn't find variable %s\n", var);
+}
+
+int ChangeVariable(char *var, char *valor, char *e[]) {
+    int pos;
+    char *aux;
+    if ((pos = SeekVariable(var, e)) == -1) return -1;
+    if ((aux = (char *) malloc(strlen(var) + strlen(valor) + 2)) == NULL) {
+        printf("%s\n", strerror(errno));
+        return -1;
+    }
+    //"NAME=VALUE"
+    strcpy(aux, var);
+    strcat(aux, "=");
+    strcat(aux, valor);
+    e[pos] = aux;
+    return pos;
+}
+
+char * UserName(uid_t uid) {
+    struct passwd *p;
+    if ((p = getpwuid(uid)) == NULL) return " ??????";
+    return p->pw_name;
+}
+
+uid_t UserUID(char *nombre) {
+    struct passwd *p;
+    if ((p = getpwnam(nombre)) == NULL) return (uid_t) - 1;
+    return p->pw_uid;
+}
+
+void ShowUIDs(void) {
+    //Prints credentials
+    uid_t real = getuid(), efec = geteuid();
+    printf("Real credential: %d, (%s)\n", real, UserName(real));
+    printf("Effective credential: %d, (%s)\n", efec, UserName(efec));
+}
+
+void ChangeUIDlogin(char *login) {
+    uid_t uid;
+    if ((uid = UserUID(login)) == (uid_t) - 1) { printf("Login not valid: %s\n", login); return; }
+    if (setuid(uid) == .1) printf("Unable to create credential: %s\n", strerror(errno));
+}
+
+void ChangePriority(int whichPriority, int pid, int priority) {
+    if (!(setpriority(whichPriority, pid, priority))) printf("the new priority has been set\n");
+    else printf("the priority could not be set\n");
+}
+
+void getArguments(char *tokens[], char *output[], int startIn) {
+    //takes the necessary set of arguments from tokens
+    int i = 0;
+    while (tokens[i + (startIn - 1)] != NULL) {
+        output[i] = tokens[i + startIn - 1];
+        i++;
+    }
+    output[i] = NULL;
+}
+
+void prio(char *token) {
+    pid_t pid = getpid();
+    int priority = (int) strtol(token, NULL, 10);
+    ChangePriority(PRIO_PROCESS, pid, priority);
+}
+
+void as(char *tokens[]) {
+    //Changes user login and moves tokens one step to the left so other auxiliary functions work properly
+    ChangeUIDlogin(tokens[1]);
+    int i = 0, j = 1;
+    while (tokens[i] != NULL) i++;
+    while (j != i + 1) { tokens[j] = tokens[j + 1]; j++; }
+}
+
+void execute(char *tokens[], bool isPrio) {
+    char *arguments[MAXLINE];
+    if (isPrio) prio(tokens[1]);
+    getArguments(tokens, arguments, 2 + (int) isPrio);
+    execvp(tokens[1 + (int) isPrio], arguments);
+}
+
+void foreground(char *tokens[], bool isPrio) {
+    pid_t pid;
+    char *arguments[MAXLINE];
+    if (isPrio) prio(tokens[1]);
+    getArguments(tokens, arguments, 2 + (int) isPrio);
+
+    if ((pid = fork()) == 0) {
+        if (execvp(tokens[1 + (int) isPrio], arguments) == -1)
+            printf("Cannot execute: %s\n", strerror(errno));
+        exit(255); //exec has failed for whatever reason
+    }
+    waitpid (pid,NULL,0);
+}
+
+char *getPriLineTime(int Pri, char *l[]) {
+    //gets the priority, command line and time of creation of the process
+    char string[MAXLINE] = "";
+    char * output = "";
+    char line[MAXLINE] = "";
+
+    strcat(line, "\"");
+    for (int i = 0; l[i] != NULL; i++) {
+        strcat(line, l[i]);
+        if (l[i+1] == NULL) strcat(line, "\"");
+        else strcat(line, " ");
+    }
+
+    char priority[5];
+    sprintf(priority, "%d", Pri);
+    strcat(string, priority);
+    strcat(string, " ");
+    strcat(string, line);
+    strcat(string, " ");
+    strcat(string, getDate());
+
+    output = string;
+    return output;
+}
+
+void updateStatus(int pid, tPos p, char *state) {
+    //updates the output of a process if necessary
+    int status;
+    if (waitpid (pid,&status, WNOHANG | WUNTRACED | WCONTINUED) == pid) {
+        if (WIFEXITED(status)) {
+            updateProcess(p, &jobs, "Terminated Normally ", WEXITSTATUS(status));
+            return;
+        } else if (WIFSIGNALED(status)) {
+            updateProcess(p, &jobs, "Terminated By Signal ", WTERMSIG(status));
+            return;
+        } else if (WIFSTOPPED(status)) {
+            updateProcess(p, &jobs, "Stopped by ", WSTOPSIG(status));
+            return;
+        } else if (WIFCONTINUED(status)) {
+            updateProcess(p, &jobs, "Running", -1);
+            return;
+        }
+    }
+}
+
+void background(char *tokens[], bool isPrio) {
+    pid_t pid;
+    struct tNode process;
+
+    char *arguments[MAXLINE];
+    if (isPrio) prio(tokens[1]);
+    getArguments(tokens, arguments, 2 + (int) isPrio);
+
+    if ((pid = fork()) == 0) {
+        if (execvp(tokens[1 + (int) isPrio], arguments) == -1)
+            printf("Cannot execute: %s\n", strerror(errno));
+        exit(255); //exec has failed for whatever reason
+    } else {
+        //adds a new background process to the jobs list
+        process.pro.pid = pid;
+        strcpy(process.pro.user.text, UserName(getuid()));
+        strcpy(process.pro.state.text, "Running");
+        process.pro.terminatedBy = -1;
+        strcpy(process.pro.priLineTime.text, getPriLineTime(getpriority(PRIO_PROCESS, pid),arguments));
+        insertItem(process, &jobs);
+    }
+//parent process continues here...
+}
+
+void printJob(tPos p) {
+    updateStatus(getItem(p, jobs).pro.pid, p, getItem(p, jobs).pro.state.text); //updates process status
+    struct tNode job = getItem(p, jobs);
+    char term[20];
+
+    if (!strcmp(job.pro.state.text, "Terminated Normally "))
+        sprintf(term, "%d", job.pro.terminatedBy); //get the returned value if process terminated normally
+    else {
+        if (job.pro.terminatedBy == -1) strcpy(term, ""); //if it is running
+        else strcpy(term, SignalName(job.pro.terminatedBy)); //if not, set the signal code
+    }
+
+    printf("%s %d %s%s %s",
+           job.pro.user.text, job.pro.pid, job.pro.state.text, term, job.pro.priLineTime.text);
+}
+
+void printJobs() {
+    if (isEmptyList(jobs)) return;
+    printf("FORMAT: [user] [pid] [state] [(return/signal)] [priority] [command] [time]\n"); //format
+    for (tPos p = first(jobs); p != NULL; p = next(p, jobs)) { printJob(p); }
+}
+
+void removeJobWhen(bool normalExit, bool signalExit, bool clear) {
+    tPos Next;
+    for (tPos p = first(jobs); p != NULL; p = Next) {
+        Next = next(p, jobs);
+        if (clear) { deleteAtPosition(p, &jobs); continue; }
+        if (normalExit)
+            if (!strcmp(getItem(p, jobs).pro.state.text, "Terminated Normally")) {
+                deleteAtPosition(p, &jobs); continue;
+            }
+        if (signalExit)
+            if (!strcmp(getItem(p, jobs).pro.state.text, "Terminated By Signal ")) {
+                deleteAtPosition(p, &jobs); continue;
+            }
+    }
 }
 
 void cmd_carpeta(char *tokens[]) {
@@ -1042,18 +1271,6 @@ void cmd_volcarmem(char *tokens[]) {
     }
 }
 
-char charToASCII(char string[]) {
-    //returns the ascii value given several possible formats
-    char output;
-    if (string[1] == 'x')
-        output = (char) strtoul(string, NULL, 16);
-    else {
-        output = (char) strtol(string, NULL, 10);
-        if (output == 0) output = string[0];
-    }
-    return output;
-}
-
 void cmd_llenarmem(char *tokens[]) {
     char byte = 65;
     int cont = 128;
@@ -1086,7 +1303,7 @@ void cmd_comando(char *tokens[]) {
     int n = (int)(strtol(tokens[1], tokens, 0));
     while (aux < last(list)) { aux = next(aux, list); n_aux++; }
 
-    if (n_aux < n) {
+    if (n_aux > n) {
         printf("there is no such command\n"); return; }
     else {
         while (n_aux > 0) { N = next(N, list); n_aux--; }
@@ -1136,24 +1353,43 @@ void cmd_ayuda(char *tokens[]) {
         if (strcmp(tokens[1], "autores") == 0) printf("autores [-n|-l] shows names and logins of the authors\n");
         if (strcmp(tokens[1], "pid") == 0) printf("pid [-p] shows the pid of the shell or its parent process\n");
         if (strcmp(tokens[1], "fecha") == 0) printf("fecha [-d|-h] shows date and / or current time]\n");
-        if (strcmp(tokens[1], "infosis") == 0)printf("infosis  shows information about the machine where its executed \n");
+        if (strcmp(tokens[1], "infosis") == 0) printf("infosis  shows information about the machine where its executed \n");
         if (strcmp(tokens[1], "fin") == 0) printf("fin stops the shell\n");
         if (strcmp(tokens[1], "bye") == 0) printf("bye stops the shell\n");
         if (strcmp(tokens[1], "salir") == 0) printf("salir stops the shell\n");
         if (strcmp(tokens[1], "crear") == 0) printf("crear [-f] [name]: creates a file or directory\n");
         if (strcmp(tokens[1], "borrar") == 0) printf("borrar [name1 name2 ...]: deletes files or empty directories\n");
-        if (strcmp(tokens[1], "borrarrec") == 0)printf("borrarrec [name1 name2 ...]: deletes files or non-empty directories\\n");
+        if (strcmp(tokens[1], "borrarrec") == 0) printf("borrarrec [name1 name2 ...]: deletes files or non-empty directories\\n");
         if (strcmp(tokens[1], "listfich") == 0) printf("listfich [-long][-link][-acc] name2 n1 n2...: lists files\n");
-        if (strcmp(tokens[1], "listdir") == 0)printf("listdir [-long][-link][-acc][-reca][-recb][-hid] name2 n1 n2...: lists files inside directories\n");
+        if (strcmp(tokens[1], "listdir") == 0) printf("listdir [-long][-link][-acc][-reca][-recb][-hid] name2 n1 n2...: lists files inside directories\n");
         if (strcmp(tokens[1], "recursiva") == 0) printf("recursiva [n]: calls ""recursiva"" function n times\n");
-        if (strcmp(tokens[1], "e-s") == 0)printf("e-s [read|write][-o] fiche addr cont: reads or writes the file specified\n");
-        if (strcmp(tokens[1], "volcarmem") == 0)printf("volcarmem addr cont: dumps contents from addr onto the terminal\n");
+        if (strcmp(tokens[1], "e-s") == 0) printf("e-s [read|write][-o] fiche addr cont: reads or writes the file specified\n");
+        if (strcmp(tokens[1], "volcarmem") == 0) printf("volcarmem addr cont: dumps contents from addr onto the terminal\n");
         if (strcmp(tokens[1], "llenarmem") == 0) printf("llenarmem addr cont byte: fills memory from addr with byte\n");
-        if (strcmp(tokens[1], "dealloc") == 0)printf("dealloc -malloc|-shared...: deallocates a block of memory assiged with parameter\n");
+        if (strcmp(tokens[1], "dealloc") == 0) printf("dealloc -malloc|-shared...: deallocates a block of memory assiged with parameter\n");
         if (strcmp(tokens[1], "malloc") == 0) printf("malloc [-free] tam: allocs or deallocs memory on the program\n");
-        if (strcmp(tokens[1], "mmap") == 0)printf("mmap [-free] fich prms: maps or unmaps files on program's memory space\n");
-        if (strcmp(tokens[1], "shared") == 0)printf("shared [-free|-create|-delkey]cl tam: assigns or deasigns shared memory\n");
+        if (strcmp(tokens[1], "mmap") == 0) printf("mmap [-free] fich prms: maps or unmaps files on program's memory space\n");
+        if (strcmp(tokens[1], "shared") == 0) printf("shared [-free|-create|-delkey]cl tam: assigns or deasigns shared memory\n");
         if (strcmp(tokens[1], "memoria") == 0)printf("memoria [-blocks|-funcs|-vars|-all|-pmap] : shows memory info\n");
+        if (strcmp(tokens[1], "priority") == 0) printf("priority [pid][value] changes the priority of a process\n");
+        if (strcmp(tokens[1], "rederr") == 0) printf("rederr [-reset] fich redirects, shows and restores the standard errors\n");
+        if (strcmp(tokens[1], "entorno") == 0) printf("entorno [-environ] shows the environment of the shell process\n");
+        if (strcmp(tokens[1], "mostrarvar") == 0) printf("mostrarvar VAR1 shows the value of environment variable VAR\n");
+        if (strcmp(tokens[1], "cambiarvar") == 0) printf("cambiarvar [-a|-e|-p] VAR VALUE changes the value of the environment var VAR to value\n");
+        if (strcmp(tokens[1], "uid") == 0) printf("uid -get|-set [-l] id gets and sets the user id of the process\n");
+        if (strcmp(tokens[1], "fork") == 0) printf("fork creates a child process\n");
+        if (strcmp(tokens[1], "ejec") == 0) printf("ejec prog arg1 arg2... executes, without creating a process the program prog with its arguments\n");
+        if (strcmp(tokens[1], "ejecpri") == 0)printf("ejec changing priority\n");
+        if (strcmp(tokens[1], "fg") == 0)printf("fg prog args... creates a process executing on foreground, prog with arguments\n");
+        if (strcmp(tokens[1], "fgpri") == 0)printf("fgpri prio prog args... creates a process executing on foreground with arguments and prio as priority\n");
+        if (strcmp(tokens[1], "back") == 0) printf("back prog arg1 arg2... creates a process that executes in background the program prog with its arguments\n");
+        if (strcmp(tokens[1], "backpri") == 0)printf("back changing priority\n");
+        if (strcmp(tokens[1], "ejecas") == 0) printf("ejec changing user\n");
+        if (strcmp(tokens[1], "fgas") == 0) printf("fg changing user\n");
+        if (strcmp(tokens[1], "bgas") == 0) printf("back changing user\n");
+        if (strcmp(tokens[1], "listjobs") == 0) printf("shows processes on background\n");
+        if (strcmp(tokens[1], "job") == 0) printf("job [-fg] pid shows information on pid process. -fg puts it on foreground\n");
+        if (strcmp(tokens[1], "borrarjobs") == 0)printf("borrarjobs [-term][-sig] deletes finished or finished by signal from background process list\n");
     }
 }
 
@@ -1269,79 +1505,7 @@ void cmd_es(char *tokens[]) {
     else if (!strcmp(tokens[1], "write")) ESwrite(tokens);
 }
 
-int SeekVariable (char *var, char *e[]) {
-    int pos = 0;
-    char aux[MAXLINE];
-    strcpy(aux,var);
-    strcat(aux, "=");
-    while (e[pos] != NULL)
-        if (!strncmp(e[pos], aux, strlen(aux))) return pos;
-        else pos++;
-    errno = ENOENT; //there is not such variable
-    return -1;
-}
-
-void MostrarEntorno(char **entorno, char *nombre_entorno) {
-    int i = 0;
-    while (entorno[i] != NULL) {
-        printf ("%p->%s[%d]=(%p) %s\n", &entorno[i], nombre_entorno, i, entorno[i], entorno[i]);
-        i++;
-    }
-}
-
-void ShowVariable(char **entorno, char *var) {
-    char * getEnv = getenv(var);
-    int busVar = SeekVariable(var, entorno);
-
-    if (busVar != -1) {
-        printf("%s (%p)<-(%p)\n", entorno[busVar], entorno[busVar], &entorno[busVar]);
-        printf("%s (%p)<-(%p)\n", getEnv, getEnv, &getEnv);
-    } else
-        printf("Error: Couldn't find variable %s\n", var);
-}
-
-int ChangeVariable(char *var, char *valor, char *e[]) {
-    int pos;
-    char *aux;
-    if ((pos = SeekVariable(var, e)) == -1) return -1;
-    if ((aux = (char *) malloc(strlen(var) + strlen(valor) + 2)) == NULL) return -1;
-    strcpy(aux, var);
-    strcat(aux, "=");
-    strcat(aux, valor);
-    e[pos] = aux;
-    return pos;
-}
-
-char * UserName (uid_t uid) {
-    struct passwd *p;
-    if ((p = getpwuid(uid)) == NULL) return " ??????";
-    return p->pw_name;
-}
-
-uid_t UserUID (char *nombre) {
-    struct passwd *p;
-    if ((p = getpwnam(nombre)) == NULL) return (uid_t) - 1;
-    return p->pw_uid;
-}
-
-void ShowUIDs (void) {
-    uid_t real = getuid(), efec = geteuid();
-    printf("Real credential: %d, (%s)\n", real, UserName(real));
-    printf("Effective credential: %d, (%s)\n", efec, UserName(efec));
-}
-
-void ChangeUIDlogin (char *login) {
-    uid_t uid;
-    if ((uid = UserUID(login)) == (uid_t) - 1) { printf("Login not valid: %s\n", login); return; }
-    if (setuid(uid) == .1) printf("Unable to create credential: %s\n", strerror(errno));
-}
-
-void ChangePriority(int whichPriority, int pid, int priority) {
-    if (!(setpriority(whichPriority, pid, priority))) printf("the new priority has been set\n");
-    else printf("the priority could not be set\n");
-}
-
-void cmd_priority (char *tokens[]) {
+void cmd_priority(char *tokens[]) {
     int which = PRIO_PROCESS, priority;
     pid_t pid;
     if (tokens[1] == NULL) pid = getpid();
@@ -1353,11 +1517,11 @@ void cmd_priority (char *tokens[]) {
     }
 }
 
-void cmd_rederr (char *tokens[]) {
-    fprintf( stderr, "my %s has %d chars\n", "string format", 30);
+void cmd_rederr(char *tokens[]) {
+    fprintf(stderr, "my %s has %d chars\n", "string format", 30);
     if (tokens[1] == NULL) printf("standard error at: %s\n", str_stderr);
     else {
-        if (strcmp(tokens[1], "-reset") == 0){
+        if (!strcmp(tokens[1], "-reset")) {
             if (dup2(stderr_copy,STDERR_FILENO) == -1) printf("could not allocate standard error to given file \n");
             else printf("standard error reallocated correctly\n");
             strcpy(str_stderr, "standard error");
@@ -1373,178 +1537,101 @@ void cmd_rederr (char *tokens[]) {
     fprintf( stderr, "my %s has %d chars\n", "string format", 30);
 }
 
-void cmd_entorno (char *tokens[]) {
-    if (tokens[1] == NULL) MostrarEntorno(env2, "shell");
-    else if (!strcmp(tokens[1], "-environ")) MostrarEntorno(environ, "shell");
+void cmd_entorno(char *tokens[]) {
+    //Prints the appropriate environment variables
+    if (tokens[1] == NULL) MostrarEntorno(env2, "3rd argument of main");
+    else if (!strcmp(tokens[1], "-environ")) MostrarEntorno(environ, "environ");
     else if (!strcmp(tokens[1], "-addr")) {
-        MostrarEntorno(env2, "shell");
-        MostrarEntorno(environ, "shell");
+        printf ("environ:                %p (stored in %p)\n", environ, &environ);
+        printf ("3rd argument of main:   %p (stored in %p)\n", env2, &env2);
     }
 }
 
-void cmd_mostrarvar (char *tokens[]) {
+void cmd_mostrarvar(char *tokens[]) {
     if (tokens[1] == NULL) MostrarEntorno(env2, "shell");
     else ShowVariable(env2, tokens[1]);
 }
 
-void cmd_cambiarvar (char *tokens[]) {
+void cmd_cambiarvar(char *tokens[]) {
+    if (tokens[1] == NULL || tokens[2] == NULL || tokens[3] == NULL) { printf("Choose a valid option (-a/-e/-p)\n"); return; }
+    char aux[MAXLINE];
+    sprintf(aux, "%s=%s", tokens[2], tokens[3]);
     if (!strcmp(tokens[1], "-a")) ChangeVariable(tokens[2], tokens[3], env2);
     else if (!strcmp(tokens[1], "-e")) ChangeVariable(tokens[2], tokens[3], environ);
-    else if (!strcmp(tokens[1], "-p")) {
-        char aux[MAXLINE];
-        strcpy(aux, tokens[2]);
-        strcat(aux, "=");
-        strcat(aux, tokens[3]);
-        putenv(aux);
-    } else printf("Choose a valid option (-a/-e/-p)");
+    else if (!strcmp(tokens[1], "-p")) { if (putenv(aux) == -1) printf("%s\n", strerror(errno)); }
+    else printf("Choose a valid option (-a/-e/-p) name value\n");
 }
 
-void cmd_uid (char *tokens[]) {
+void cmd_uid(char *tokens[]) {
     if (tokens[1] == NULL || tokens[2] == NULL || !strcmp(tokens[1], "-get")) ShowUIDs();
     else if (!strcmp(tokens[1], "-set") && !strcmp(tokens[2], "-l")) ChangeUIDlogin(tokens[3]);
     else printf("Error: choose a valid option (-get|-set -l id)\n");
 }
 
-void cmd_fork (char *tokens[]) {
+void cmd_fork(char *tokens[]) {
     if (fork() == 1) exit(0); //terminate child
     else wait(NULL); //reaping parent
 }
 
-void getArguments (char *tokens[], char *output[], int startIn) {
-    int i = 0;
-    while (tokens[i + startIn - 1] != NULL) {
-        output[i] = tokens[i + startIn - 1];
-        i++;
-    }
-}
-
-void prio (char *token) {
-    pid_t pid = getpid();
-    int priority = (int) strtol(token, NULL, 10);
-    ChangePriority(PRIO_PROCESS, pid, priority);
-}
-
-void as (char *tokens[]) {
-    ChangeUIDlogin(tokens[1]);
-    int i = 0, j = 1;
-    while (tokens[i] != NULL) i++;
-    while (j != i + 1) { tokens[j] = tokens[j + 1]; j++; }
-}
-
-void execute (char *tokens[], bool isPrio) {
-    if (isPrio) prio(tokens[1]);
-    char *arguments[MAXLINE];
-    getArguments(tokens, arguments, 2 + isPrio);
-    execvp(tokens[1 + isPrio], arguments);
-}
-
-void foreground (char *tokens[], bool isPrio) {
-    pid_t pid;
-    char *arguments[MAXLINE];
-    if ((pid = fork()) == 0) {
-        if (isPrio) prio(tokens[1]);
-        getArguments(tokens, arguments, 2 + isPrio);
-        if (execvp(tokens[1 + isPrio], arguments) == -1)
-            perror ("Cannot execute");
-        exit(255); //exec has failed for whatever reason
-    }
-    waitpid (pid,NULL,0);
-}
-
-void background (char *tokens[], bool isPrio) {
-    pid_t pid;
-    char *arguments[MAXLINE];
-    if ((pid = fork()) == 0) {
-        if (isPrio) prio(tokens[1]);
-        getArguments(tokens, arguments, 2 + isPrio);
-        if (execvp(tokens[1 + isPrio], arguments) == -1)
-            perror ("Cannot execute");
-        exit(255); //exec has failed for whatever reason
-    }
-//parent process continues here...
-}
-
-void cmd_ejec (char *tokens[]) {
+void cmd_ejec(char *tokens[]) {
     execute(tokens, false);
 }
 
-void cmd_fg (char *tokens[]) {
+void cmd_fg(char *tokens[]) {
     foreground(tokens, false);
 }
 
-void cmd_back (char *tokens[]) {
+void cmd_back(char *tokens[]) {
     background(tokens, false);
 }
 
-void cmd_ejecpri (char *tokens[]) {
+void cmd_ejecpri(char *tokens[]) {
     execute(tokens, true);
 }
 
-void cmd_fgpri (char *tokens[]) {
+void cmd_fgpri(char *tokens[]) {
     foreground(tokens, true);
 }
 
-void cmd_backpri (char *tokens[]) {
+void cmd_backpri(char *tokens[]) {
     background(tokens, true);
 }
 
-void cmd_ejecas (char *tokens[]) {
+void cmd_ejecas(char *tokens[]) {
     as(tokens);
-    execute(tokens, true);
+    execute(tokens, false);
 }
 
-void cmd_fgas (char *tokens[]) {
+void cmd_fgas(char *tokens[]) {
     as(tokens);
-    foreground(tokens, true);
+    foreground(tokens, false);
 }
 
-void cmd_bgas (char *tokens[]) {
+void cmd_bgas(char *tokens[]) {
     as(tokens);
-    background(tokens, true);
+    background(tokens, false);
 }
 
-void printJob(tPos p) {
-    struct tNode job = getItem(p, jobs);
-    printf("%s %d %s %s %s\n",
-           job.pro.user.text, job.pro.pid, job.pro.priLineTime.text, job.pro.exit.text, job.pro.terminatedBy.text);}
-
-void printJobs () {
-    for (tPos p = first(jobs); p != NULL; p = next(p, jobs)) { printJob(p); }
-}
-
-void cmd_listjobs (char *tokens[]) {
+void cmd_listjobs(char *tokens[]) {
     printJobs();
 }
 
-void cmd_job (char *tokens[]) {
+void cmd_job(char *tokens[]) {
     bool fg = false;
-    if (!strcmp(tokens[1], "-fg")) fg = true;
-    if (tokens[1 + fg] == NULL) { printJobs(); return; }
+    if (tokens[1] != NULL && !strcmp(tokens[1], "-fg")) fg = true;
+    if (tokens[1 + (int) fg] == NULL) { printJobs(); return; }
     else
         for (tPos p = first(jobs); p != NULL; p = next(p, jobs))
-            if (getItem(p, jobs).pro.pid == strtol(tokens[1 + fg], NULL, 10)) {
-                printJob(p);
-                if (fg) waitpid(getItem(p, jobs).pro.pid,NULL,0);
+            if (getItem(p, jobs).pro.pid == strtol(tokens[1 + (int) fg], NULL, 10)) {
+                if (fg) {
+                    deleteAtPosition(p, &jobs);
+                    waitpid(getItem(p, jobs).pro.pid,NULL,0);
+                }
+                else printJob(p);
             }
 }
 
-void removeJobWhen (bool normalExit, bool signalExit, bool clear) {
-    tPos Next;
-    for (tPos p = first(jobs); p != NULL; p = Next) {
-        Next = next(p, jobs);
-        if (clear) { deleteAtPosition(p, &jobs); continue; }
-        if (normalExit)
-            if (!strcmp(getItem(p, jobs).pro.terminatedBy.text, "Terminated Normally")) {
-                deleteAtPosition(p, &jobs); continue;
-            }
-        if (signalExit)
-            if (!strcmp(getItem(p, jobs).pro.terminatedBy.text, "Terminated By Signal")) {
-                deleteAtPosition(p, &jobs); continue;
-            }
-    }
-}
-
-void cmd_borrarjobs (char *tokens[]) {
+void cmd_borrarjobs(char *tokens[]) {
     if (!strcmp(tokens[1], "-term")) removeJobWhen(true, false, false);
     else if (!strcmp(tokens[1], "-sig")) removeJobWhen(false, true, false);
     else if (!strcmp(tokens[1], "-all")) removeJobWhen(true, true, false);
@@ -1553,7 +1640,7 @@ void cmd_borrarjobs (char *tokens[]) {
 }
 
 int main(int argc, char *argv[], char *env[]) {
-    char str[MAXLINE];      //variable which stores the input
+    char str[MAXLINE];          //variable which stores the input
     createEmptyList(&list); //list needed for command hist
     createEmptyList(&mem);  //list needed for allocated memory lists
     createEmptyList(&jobs); //list needed for background processes

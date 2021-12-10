@@ -55,8 +55,8 @@ bool insertItem(struct tNode node, tList *list){
         if (node.pro.pid >= 0) {
             n_pos->pro.pid = node.pro.pid;
             strcpy(n_pos->pro.user.text, node.pro.user.text);
-            strcpy(n_pos->pro.exit.text, node.pro.exit.text);
-            strcpy(n_pos->pro.terminatedBy.text, node.pro.terminatedBy.text);
+            strcpy(n_pos->pro.state.text, node.pro.state.text);
+            n_pos->pro.terminatedBy = node.pro.terminatedBy;
             strcpy(n_pos->pro.priLineTime.text, node.pro.priLineTime.text);
         }
 
@@ -94,6 +94,12 @@ void deleteAtPosition(tPos pos, tList *list){
         // given position to go after previous position, thus skipping given pos
     }
     free(pos); // data in given position not needed anymore, thus freed
+}
+
+void updateProcess(tPos pos, tList *list, char *state, int terminatedBy) {
+    if (pos == NULL) return;
+    if (state != NULL) strcpy(pos->pro.state.text, state);
+    pos->pro.terminatedBy = terminatedBy;
 }
 
 struct tNode getItem(tPos pos, tList list) {
