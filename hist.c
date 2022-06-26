@@ -15,20 +15,6 @@ tCommand_pos next (tCommand_pos pos, tHist list){
     return pos->next; //the next item is obtained
 }
 
-
-tCommand_pos previous (tCommand_pos pos, tHist list){
-
-    tCommand_pos prev_pos; //previous position
-    if (pos == list) //if p is at the beginning of the list
-        return NULL_COMMAND; //if the given item is the first position, there can't be another item before it
-    else {
-        for (prev_pos = list; prev_pos->next != pos; prev_pos = prev_pos->next); //from the first item, the loop goes to the
-        // item after it if its next isn't the wanted position
-        return prev_pos;//it is obtained the item that has the given position as its next
-    }
-}
-
-
 bool insertItem(struct tNode node, tHist *list){
 
     tCommand_pos n_pos, p_pos; //needed position variables, new node position and the position that will be its previous
@@ -44,12 +30,12 @@ bool insertItem(struct tNode node, tHist *list){
         if (*list == NULL_COMMAND) //list is empty
             *list = n_pos; //n_pos is the first position
         else {
-                p_pos = *list; //set the following position at the beginning of the list
-                while (p_pos->next != NULL_COMMAND)
-                    p_pos = p_pos->next;
-                n_pos->next = p_pos->next; //set that the next of n_pos is the next of prev_pos
-                p_pos->next = n_pos; //set n_pos to be the position following prev_pos
-                //thus prev_pos is the position previous to n_pos
+            p_pos = *list; //set the following position at the beginning of the list
+            while (p_pos->next != NULL_COMMAND)
+                p_pos = p_pos->next;
+            n_pos->next = p_pos->next; //set that the next of n_pos is the next of prev_pos
+            p_pos->next = n_pos; //set n_pos to be the position following prev_pos
+            //thus prev_pos is the position previous to n_pos
         }
         return true; //indeed, it is possible to insert the item
     }
@@ -67,8 +53,8 @@ void deleteAtPosition(tCommand_pos pos, tHist *list){
         //q is previous to p
         p_pos->next = NULL_COMMAND; //point the next of q to null, thus making it the last element in the list
     }
-    else{ //intermediate position
-        for ( p_pos=*list ; p_pos->next  != pos ; p_pos = p_pos->next);//prev_pos as first pos advance
+    else { //intermediate position
+        for (p_pos=*list ; p_pos->next  != pos ; p_pos = p_pos->next);//prev_pos as first pos advance
         // though the list until the next to prev_pos is given position
         p_pos->next = pos->next; //once obtained previous position to given, we set the item that goes after
         // given position to go after previous position, thus skipping given pos
