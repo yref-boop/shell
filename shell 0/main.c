@@ -7,23 +7,17 @@
 #include <sys/utsname.h>
 #include "hist.c"
 
-// p0:
-// Alejandro Fernandez Vazquez: a.fernandez9
-// Yago Fernandez Rego: yago.fernandez.rego
-//
-
-
 #define MAXLINE 1024
 
-void cmd_comando(char**);
-void cmd_hist(char**);
-void cmd_ayuda(char**);
+void cmd_fin(char**);
 void cmd_carpeta(char**);
 void cmd_autores(char**);
 void cmd_pid(char**);
 void cmd_fecha(char**);
 void cmd_infosis(char**);
-void cmd_fin(char**);
+void cmd_ayuda(char**);
+void cmd_comando(char**);
+void cmd_hist(char**);
 
 tHist list;
 
@@ -33,17 +27,17 @@ struct CMD{
 };
 
 struct CMD C[]={
-        {"comando", cmd_comando},
-        {"hist", cmd_hist},
-        {"ayuda", cmd_ayuda},
+        {"fin", cmd_fin},
+        {"bye", cmd_fin},
+        {"salir", cmd_fin},
         {"carpeta", cmd_carpeta},
         {"autores", cmd_autores},
         {"pid", cmd_pid},
         {"fecha", cmd_fecha},
         {"infosis", cmd_infosis},
-        {"fin", cmd_fin},
-        {"bye", cmd_fin},
-        {"salir", cmd_fin},
+        {"ayuda", cmd_ayuda},
+        {"comando", cmd_comando},
+        {"hist", cmd_hist},
         {NULL, NULL}
 };
 
@@ -111,136 +105,52 @@ void cmd_infosis(char **tokens){
 }
 
 void cmd_ayuda(char **tokens) {
-
-    if (tokens[3] != NULL_COMMAND) {
-        printf("Too many arguments\n");
-        return;
-    }
-
-    if (tokens[1] == NULL){
+    if (tokens[1] == NULL) {
         printf("All the avaliable commands are: \n");
-
-        for (int i = 0 ; C[i].name != NULL ; i++){
-            printf("%s ", C[i].name);
+        for (int i = 0; C[i].name != NULL; i++) {
+            printf("%s\n", C[i].name);
         }
-
-        printf("\n");
-    }
-    else {
-        if( (0==(strcmp(tokens[1], "fin"))) || (0==(strcmp(tokens[1], "salir"))) || (0==(strcmp(tokens[1], "bye"))))
+    } else {
+        if ((0 == (strcmp(tokens[1], "fin"))) || (0 == (strcmp(tokens[1], "salir"))) ||
+            (0 == (strcmp(tokens[1], "bye"))))
             printf("This command ends the shell\n");
 
-        else if((0==(strcmp(tokens[1], "autores")))){
+        else if ((0 == (strcmp(tokens[1], "autores")))) {
             printf("The command %s gives info on the authors of the code, ", tokens[1]);
 
-            if(tokens[2] == NULL){
+            if (tokens[2] == NULL) {
                 printf("by default both the names and the logins will be printed\n");
                 printf("there exist two variations of this command, <<autores -p>> and <<autores -n>>\n");
-            }
-
-            else if ((0==(strcmp(tokens[2], "-l")))){
+            } else if ((0 == (strcmp(tokens[2], "-l")))) {
                 printf("the parameter %s specifies that only the logins will be printed\n", tokens[2]);
-            }
-
-            else if ((0==(strcmp(tokens[2], "-n")))){
+            } else if ((0 == (strcmp(tokens[2], "-n")))) {
                 printf("moreover, the parameter %s specifies that only the names will be printed\n", tokens[2]);
-            }
-            else{
+            } else {
                 printf("the parameter %s, however, does not exist for this command\n", tokens[2]);
             }
-        }
-
-        else if ((0==(strcmp(tokens[1], "fecha")))){
+        } else if ((0 == (strcmp(tokens[1], "fecha")))) {
             printf("The command %s gives info on the current time,", tokens[1]);
 
-            if(tokens[2] == NULL){
+            if (tokens[2] == NULL) {
                 printf("by default the date and the time are shown ");
                 printf("there exist two variations of this command, <<fecha -d>> and <<fecha -h>>\n");
-            }
-
-            else if ((0==(strcmp(tokens[2], "-d")))){
+            } else if ((0 == (strcmp(tokens[2], "-d")))) {
                 printf(" the parameter %s specifies that only the date will be printed\n", tokens[2]);
-            }
-            else if ((0==(strcmp(tokens[2], "-h")))){
+            } else if ((0 == (strcmp(tokens[2], "-h")))) {
                 printf("moreover, the parameter %s specifies that only the hour will be printed\n", tokens[2]);
-            }
-            else{
+            } else {
                 printf("the parameter %s, however, does not exist for this command\n", tokens[2]);
             }
-        }
-
-        else if((0==(strcmp(tokens[1], "carpeta")))){
+        } else if ((0 == (strcmp(tokens[1], "carpeta")))) {
             printf("The command %s gives info about folders,\n", tokens[1]);
 
-            if(tokens[2] == NULL){
+            if (tokens[2] == NULL) {
                 printf("by default the date and the time are shown\n ");
                 printf("there exist a extra variation of this command, <<carpeta [directory]>> \n");
+            } else {
+                printf("when used with an extra parameter, this command changes the current folder to the given parameter %s\n",
+                       tokens[2]);
             }
-
-            else{
-                printf("when used with an extra parameter, this command changes the current folder to the given parameter %s\n", tokens[2]);
-            }
-        }
-
-        else if((0==(strcmp(tokens[1], "pid")))){
-            printf("The command %s gives info about the current process ID,\n", tokens[1]);
-
-            if(tokens[2] == NULL){
-                printf("by default the process executing the shell is printed\n ");
-                printf("there exist a extra variation of this command, <pid -p>> \n");
-            }
-
-            else if ((0==(strcmp(tokens[2], "-p")))) {
-                printf("when used with %s parameter, the program prints the ID os the parent process of the shell\n", tokens[2]);
-            }
-
-            else {
-                printf("the parameter %s, however, does not exist for this command\n", tokens[2]);
-            }
-        }
-
-        else if((0==(strcmp(tokens[1], "hist")))) {
-            printf("The command %s gives info about the commands previosly executed on the shell,\n", tokens[1]);
-
-            if (tokens[2] == NULL) {
-                printf("by default it prints all the commands that have been input and their order number\n ");
-                printf("there exist two extra variations of this command, <<hist -c>>> and <<hist -N>> \n");
-            }
-
-            else {
-                int N;
-                N = (int) strtol(tokens[1], tokens, 0);
-                if ((0 == (strcmp(tokens[2], "-c")))) {
-                    printf("when used with %s parameter, the command clears the list of historic commands\n",
-                           tokens[2]);
-                } else if ((0 == (N<0))) {
-                    printf("when used with an number N as parameter, the command prints history of commands previous to Nth\n");
-                } else {
-                    printf("the parameter %s, however, does not exist for this command\n", tokens[2]);
-                }
-            }
-        }
-
-        else if((0==(strcmp(tokens[1], "infosis"))))
-            printf("the command %s gives info about the current system, there are no variations of this command\n", tokens[1]);
-
-        else if((0==(strcmp(tokens[1], "comando"))))
-            printf("this command executes the command on the list with the wanted position\n");
-
-        else if((0==(strcmp(tokens[1], "ayuda")))){
-            printf("The command %s gives a brief summary of the commands,\n", tokens[1]);
-
-            if(tokens[2] == NULL){
-                printf("by default it lists all the possible commands\n ");
-                printf("there exist an extra variations of this command, <<ayuda -cmd>>\n");
-            }
-
-            else if (tokens[2]!=NULL) {
-                printf("when used with an extra parameter, the command gives info about an specific command, if it exists \n");
-            }
-        }
-        else if (tokens[1]!=NULL){
-            printf("The command %s cannot be found\n", tokens[1]);
         }
     }
 }
@@ -291,22 +201,45 @@ void processInput(char **tokens, char str[]) {
     struct tNode node;
     char command[COMMAND_LENGTH_LIMIT];
 
-    if (tokens[0] == NULL_COMMAND)
+    if (tokens[0] == NULL)
         return;
 
     for (i = 0 ; C[i].name != NULL ; i++){
         if (!strcmp(tokens[0], C[i].name)){
             node.next = NULL_COMMAND;
-            strcpy(node.data.command, str);
 
-            if (i > 1)
-                insertItem(node, &list);
+
+
+            char strc[MAXLINE];
+            strcpy(strc, str);
+
+            strcpy(command, strc);
+
+            /*
+            if (tokens[1] == NULL_COMMAND)
+                strcpy(command, tokens[0]);
+
+
+
+            else if (tokens[2] == NULL_COMMAND) {
+                strcpy(command, tokens[0]);
+                strcat(command, " ");
+                strcat(command, tokens[1]);
+                printf("%s",tokens[1]);
+            }
+            else{
+                strcpy(command, tokens[0]);
+                strcat(command, " ");
+                strcat(command, tokens[1]);
+                strcat(command, " ");
+                strcat(command, tokens[2]);
+            }
+            */
+            strcpy(node.data.command, command);
+            insertItem(node, &list);
 
             (C[i].func)(tokens);
-
-            tokens[1] = NULL_COMMAND;
-            tokens[2] = NULL_COMMAND;
-            tokens[3] = NULL_COMMAND;
+//            tokens[1] = NULL_COMMAND;
             break;
         }
     }
@@ -319,6 +252,7 @@ void processInput(char **tokens, char str[]) {
 //this function is used to split the string (named previously as trocearCadena())
 //and to count the number of words written
 char splitString(char str[], char **tokens){
+
 
     char strc[MAXLINE];
     strcpy(strc, str);
@@ -340,50 +274,45 @@ char splitString(char str[], char **tokens){
 
 void cmd_comando(char **tokens) {
 
-    int N = 0;
-    tCommand_pos i = first(list);
+    int N;
+    int count = 0;
+    tCommand_pos i;
 
     if (tokens[1] != NULL_COMMAND) {
-
         N = (int) strtol(tokens[1], tokens, 0);
+        if (N > 0){
 
-        if (N > 0) {
+            for (i = first(list); ((i != NULL_COMMAND) && (count != N)); i = next(i, list))
+                count ++;
 
-            for (int j = 1; j < N; ++j) {
-                if (i == NULL_COMMAND) break;
-                i = next(i, list);
-            }
-
-            if ((tokens[0] != NULL_COMMAND) && (i != NULL_COMMAND)) {
+            if (i != NULL_COMMAND) {
                 tokens[1] = NULL_COMMAND;
-                printf("%s\n", getItem(i, list).command);
-                splitString(getItem(i, list).command, tokens);
-                processInput(tokens, getItem(i, list).command);
+                printf("%s\n", getItem(previous(i, list), list).command);
+                splitString(getItem(previous(i, list), list).command, tokens);
+                processInput(tokens, "");
             }
             else
-                printf("Command not found\n");
+                printf("");
 
         } else
-            printf("Command not found\n");
+            printf("");
     } else
-        printf("Insert the number of the command\n");
+        printf("\n");
 }
 
 
 int main(){
     char str[MAXLINE];
-    char **tokens [MAXLINE];
+    char **tokens = malloc(MAXLINE);
+
     createEmptyList(&list);
 
     while(1) {
         printf("*) ");
         fgets(str, MAXLINE, stdin);
-        if (strcmp(str,"\n")) {
-            str[strcspn(str, "\n")] = 0;
-            splitString(str, tokens);
-            processInput(tokens, str);
-        }
-        memset(str, '0', MAXLINE);
+        str[strcspn(str, "\n")] = 0;
+        splitString(str, tokens);
+        processInput(tokens,str);
     }
 
     return 0;
