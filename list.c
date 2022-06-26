@@ -43,12 +43,21 @@ bool insertItem(struct tNode node, tList *list){
         //there is enough memory, n_pos = position of the new node
         strcpy(n_pos->data.text, node.data.text); //n_pos gets the given data
 
+        //copy the necessary values
         if (node.mem.size >= 0) {
             n_pos->mem.address = node.mem.address;
             strcpy(n_pos->mem.file.text, node.mem.file.text);
             n_pos->mem.key = node.mem.key;
             n_pos->mem.size = node.mem.size;
             strcpy(n_pos->mem.date.text, node.mem.date.text);
+        }
+
+        if (node.pro.pid >= 0) {
+            n_pos->pro.pid = node.pro.pid;
+            strcpy(n_pos->pro.user.text, node.pro.user.text);
+            strcpy(n_pos->pro.state.text, node.pro.state.text);
+            n_pos->pro.terminatedBy = node.pro.terminatedBy;
+            strcpy(n_pos->pro.priLineTime.text, node.pro.priLineTime.text);
         }
 
         n_pos->next = NULL_TEXT; //the next position to n_pos is set to NULL_TEXT  if (*list == NULL_TEXT) //list is empty
@@ -85,6 +94,12 @@ void deleteAtPosition(tPos pos, tList *list){
         // given position to go after previous position, thus skipping given pos
     }
     free(pos); // data in given position not needed anymore, thus freed
+}
+
+void updateProcess(tPos pos, tList *list, char *state, int terminatedBy) {
+    if (pos == NULL) return;
+    if (state != NULL) strcpy(pos->pro.state.text, state);
+    pos->pro.terminatedBy = terminatedBy;
 }
 
 struct tNode getItem(tPos pos, tList list) {
