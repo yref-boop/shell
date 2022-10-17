@@ -1,4 +1,4 @@
-# operating-systems
+# linux-shell
 shell done as homework for the operating systems subject
 
 the different folders represent different submissions:
