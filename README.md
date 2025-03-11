@@ -1,11 +1,14 @@
 # linux-shell
 shell done as homework for the operating systems subject
 
-the different folders represent different submissions:
-  - 0 base shell (info, inner workings, historic list ... )
-  - 1 filesystem (create, erase ... )
-  - 2 memory (malloc, dealloc, map ...)
-  - 3 process (fork, uids ... )
+### libraries & tecnologies:
+`gcc`
+
+the different project branches represent different submissions:
+  - shell-0 base shell (info, inner workings, historic list ... )
+  - shell-1 filesystem (create, erase ... )
+  - shell-2 memory (malloc, dealloc, map ...)
+  - main process (fork, uids ... )
 
 each version is built upon the previous one
 

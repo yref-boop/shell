@@ -797,7 +797,7 @@ ssize_t WriteFich(char *fich, void *p, ssize_t n, int overwrite) {
         if (open(fich, O_WRONLY) != -1) {
             printf("File already exists: try with overwrite: -o\n"); return (ssize_t) -1;
         } else {
-            if ((fd = open(fich, O_WRONLY | O_CREAT)) == -1) {
+            if ((fd = open(fich, O_WRONLY | O_CREAT,  S_IRUSR|S_IWUSR)) == -1) {
                 printf("Error: %s\n", strerror(errno)); return (ssize_t) -1; }
         }
     }
